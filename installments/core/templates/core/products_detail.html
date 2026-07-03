@@ -1,0 +1,9 @@
+﻿{% extends 'core/base.html' %}
+{% block title %}تفاصيل المنتج{% endblock %}
+{% block content %}
+<h2 class="mb-3">{{ product.name }}</h2>
+<div class="row g-3 mb-3"><div class="col-md-4">{% if product.image %}<img src="{{ product.image.url }}" class="img-fluid rounded" alt="{{ product.name }}">{% endif %}</div><div class="col-md-8"><div class="card stat"><div class="card-body"><p>الماركة: {{ product.brand|default:'-' }}</p><p>الفئة: {{ product.category|default:'-' }}</p><p class="money mb-0">السعر التقديري: {{ product.estimated_price|default:0|floatformat:2 }} جنيه</p></div></div></div></div>
+<div class="card stat mb-3"><div class="card-body"><h5>العقود المرتبطة</h5><div class="table-responsive"><table class="table"><thead><tr><th>العقد</th><th>العميل</th><th>الإجمالي</th></tr></thead><tbody>{% for contract in contracts %}<tr><td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td><td>{{ contract.customer.name }}</td><td class="money">{{ contract.total_amount|floatformat:2 }} جنيه</td></tr>{% empty %}<tr><td colspan="3">لا توجد عقود.</td></tr>{% endfor %}</tbody></table></div></div></div>
+<div class="card stat"><div class="card-body"><h5>المشتريات</h5><div class="table-responsive"><table class="table"><thead><tr><th>التاجر</th><th>السعر</th><th>التاريخ</th></tr></thead><tbody>{% for purchase in purchases %}<tr><td>{{ purchase.supplier.name }}</td><td class="money">{{ purchase.purchase_price|floatformat:2 }} جنيه</td><td>{{ purchase.purchase_date }}</td></tr>{% empty %}<tr><td colspan="3">لا توجد مشتريات.</td></tr>{% endfor %}</tbody></table></div></div></div>
+{% endblock %}
+

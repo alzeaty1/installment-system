@@ -1,0 +1,9 @@
+﻿{% extends 'core/base.html' %}
+{% block title %}تفاصيل التاجر{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><h2>{{ supplier.name }}</h2><a class="btn btn-outline-primary" href="{% url 'core:supplier_edit' supplier.id %}">تعديل</a></div>
+<div class="row g-3 mb-3"><div class="col-md-4"><div class="card stat"><div class="card-body"><div class="text-muted">الهاتف</div>{{ supplier.phone }}</div></div></div><div class="col-md-4"><div class="card stat"><div class="card-body"><div class="text-muted">الفئة</div>{{ supplier.category|default:'-' }}</div></div></div><div class="col-md-4"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي الشراء</div><span class="money">{{ total_spent|floatformat:2 }} جنيه</span></div></div></div></div>
+<div class="card stat mb-3"><div class="card-body"><p>العنوان: {{ supplier.address|default:'-' }}</p><p class="mb-0">ملاحظات: {{ supplier.notes|default:'-' }}</p></div></div>
+<div class="card stat"><div class="card-body"><h5>سجل المشتريات</h5><div class="table-responsive"><table class="table"><thead><tr><th>المنتج</th><th>السعر</th><th>التاريخ</th><th>ملاحظات</th></tr></thead><tbody>{% for purchase in purchases %}<tr><td>{{ purchase.product_name }}</td><td class="money">{{ purchase.purchase_price|floatformat:2 }} جنيه</td><td>{{ purchase.purchase_date }}</td><td>{{ purchase.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="4">لا توجد مشتريات.</td></tr>{% endfor %}</tbody></table></div></div></div>
+{% endblock %}
+

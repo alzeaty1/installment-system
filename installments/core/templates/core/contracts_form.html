@@ -1,0 +1,44 @@
+﻿{% extends 'core/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h2 class="mb-3">{{ title }}</h2>
+<div class="row g-3">
+  <div class="col-lg-8"><div class="card stat"><div class="card-body"><form method="post" id="contractForm">{% csrf_token %}{{ form.non_field_errors }}<div class="row g-3">{% for field in form %}<div class="col-md-6 field-{{ field.name }}"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}</div><div class="mt-3"><button class="btn btn-primary">حفظ</button> <a class="btn btn-outline-secondary" href="{% url 'core:contract_list' %}">رجوع</a></div></form></div></div></div>
+  <div class="col-lg-4"><div class="card stat"><div class="card-body"><h5>حاسبة العقد</h5><p class="text-muted small">تتحدث القيم تلقائيا حسب طريقة الحساب المختارة.</p><dl class="row mb-0"><dt class="col-6">المتبقي</dt><dd class="col-6 money" id="calcRemaining">0.00 جنيه</dd><dt class="col-6">الفائدة</dt><dd class="col-6 money" id="calcInterest">0.00 جنيه</dd><dt class="col-6">النسبة</dt><dd class="col-6" id="calcRate">0.00%</dd><dt class="col-6">الإجمالي</dt><dd class="col-6 money" id="calcTotal">0.00 جنيه</dd><dt class="col-6">القسط</dt><dd class="col-6 money" id="calcInstallment">0.00 جنيه</dd></dl><div class="alert alert-danger d-none mt-3" id="calcError"></div></div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+const form = document.getElementById('contractForm');
+const ids = {remaining_amount:'calcRemaining', total_interest:'calcInterest', interest_rate:'calcRate', total_amount:'calcTotal', installment_amount:'calcInstallment'};
+function money(v){return `${Number(v || 0).toFixed(2)} جنيه`;}
+function updateMode(){
+  const mode = document.getElementById('id_calculation_mode').value;
+  document.querySelector('.field-interest_rate').style.display = mode === 'A' ? 'none' : '';
+  document.querySelector('.field-installment_amount').style.display = mode === 'B' || mode === 'C' ? 'none' : '';
+}
+async function calculate(){
+  updateMode();
+  const params = new URLSearchParams(new FormData(form));
+  params.set('calculate','1');
+  const err = document.getElementById('calcError');
+  try {
+    const res = await fetch(`?${params.toString()}`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'خطأ في الحساب');
+    err.classList.add('d-none');
+    document.getElementById(ids.remaining_amount).textContent = money(data.remaining_amount);
+    document.getElementById(ids.total_interest).textContent = money(data.total_interest);
+    document.getElementById(ids.interest_rate).textContent = `${Number(data.interest_rate || 0).toFixed(2)}%`;
+    document.getElementById(ids.total_amount).textContent = money(data.total_amount);
+    document.getElementById(ids.installment_amount).textContent = money(data.installment_amount);
+    if(document.getElementById('id_calculation_mode').value !== 'A') document.getElementById('id_installment_amount').value = data.installment_amount;
+    if(document.getElementById('id_calculation_mode').value === 'C') document.getElementById('id_interest_rate').value = data.interest_rate;
+  } catch(e) { err.textContent = e.message; err.classList.remove('d-none'); }
+}
+form.querySelectorAll('input, select').forEach(el => el.addEventListener('input', calculate));
+form.querySelectorAll('select').forEach(el => el.addEventListener('change', calculate));
+calculate();
+</script>
+{% endblock %}
+

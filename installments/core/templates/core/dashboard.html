@@ -1,0 +1,29 @@
+﻿{% extends 'core/base.html' %}
+{% block title %}لوحة التحكم{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4"><h2>لوحة التحكم</h2><a class="btn btn-primary" href="{% url 'core:contract_create' %}">عقد جديد</a></div>
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">العقود النشطة</div><div class="h3">{{ active_contracts }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">أقساط اليوم</div><div class="h3">{{ due_today_count }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المتأخرات</div><div class="h3">{{ overdue_count }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي الربح</div><div class="h3 money">{{ total_profit|floatformat:2 }} جنيه</div></div></div></div>
+  <div class="col-md-6"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي المستثمر</div><div class="h4 money">{{ total_invested|floatformat:2 }} جنيه</div></div></div></div>
+  <div class="col-md-6"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي المحصل</div><div class="h4 money">{{ total_collected|floatformat:2 }} جنيه</div></div></div></div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-8"><div class="card stat"><div class="card-body"><h5>التحصيل الشهري</h5><canvas id="paymentsChart" height="120"></canvas></div></div></div>
+  <div class="col-lg-4"><div class="card stat"><div class="card-body"><h5>حالات العقود</h5><canvas id="statusChart" height="180"></canvas></div></div></div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card stat"><div class="card-body"><h5>أحدث العقود</h5><div class="table-responsive"><table class="table"><thead><tr><th>رقم العقد</th><th>العميل</th><th>الإجمالي</th></tr></thead><tbody>{% for contract in recent_contracts %}<tr><td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td><td>{{ contract.customer.name }}</td><td class="money">{{ contract.total_amount|floatformat:2 }} جنيه</td></tr>{% empty %}<tr><td colspan="3">لا توجد عقود.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+  <div class="col-lg-6"><div class="card stat"><div class="card-body"><h5>أحدث المدفوعات</h5><div class="table-responsive"><table class="table"><thead><tr><th>العقد</th><th>العميل</th><th>المدفوع</th></tr></thead><tbody>{% for item in recent_payments %}<tr><td>{{ item.contract.contract_number }}</td><td>{{ item.contract.customer.name }}</td><td class="money">{{ item.paid_amount|floatformat:2 }} جنيه</td></tr>{% empty %}<tr><td colspan="3">لا توجد مدفوعات.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+new Chart(document.getElementById('paymentsChart'), {type:'line', data:{labels:{{ chart_labels|safe }}, datasets:[{label:'المحصل', data:{{ chart_values|safe }}, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.15)', tension:.3, fill:true}]}});
+new Chart(document.getElementById('statusChart'), {type:'doughnut', data:{labels:{{ status_labels|safe }}, datasets:[{data:{{ status_values|safe }}, backgroundColor:['#16a34a','#2563eb','#dc2626','#6b7280']}]}});
+</script>
+{% endblock %}
+

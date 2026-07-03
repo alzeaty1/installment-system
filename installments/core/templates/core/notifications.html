@@ -1,0 +1,7 @@
+﻿{% extends 'core/base.html' %}
+{% block title %}التنبيهات{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><h2>التنبيهات</h2><form method="post" action="{% url 'core:notification_check_due' %}">{% csrf_token %}<button class="btn btn-primary">فحص المستحقات</button></form></div>
+<div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>الرسالة</th><th>النوع</th><th>العقد</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>{% for notification in notifications %}<tr><td>{{ notification.message }}</td><td>{{ notification.get_notification_type_display }}</td><td>{% if notification.contract %}<a href="{% url 'core:contract_detail' notification.contract.id %}">{{ notification.contract.contract_number }}</a>{% else %}-{% endif %}</td><td>{{ notification.created_at }}</td><td>{% if notification.is_read %}مقروء{% else %}جديد{% endif %}</td><td>{% if not notification.is_read %}<form method="post" action="{% url 'core:notification_read' notification.id %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success">تعليم كمقروء</button></form>{% endif %}</td></tr>{% empty %}<tr><td colspan="6">لا توجد تنبيهات.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
+

@@ -104,10 +104,10 @@ class Contract(models.Model):
     STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = [
-        (STATUS_ACTIVE, "Active"),
-        (STATUS_COMPLETED, "Completed"),
-        (STATUS_OVERDUE, "Overdue"),
-        (STATUS_CANCELLED, "Cancelled"),
+        (STATUS_ACTIVE, "نشط"),
+        (STATUS_COMPLETED, "مكتمل"),
+        (STATUS_OVERDUE, "متأخر"),
+        (STATUS_CANCELLED, "ملغي"),
     ]
 
     contract_number = models.CharField(max_length=50, unique=True, blank=True)
@@ -169,10 +169,10 @@ class Installment(models.Model):
     STATUS_PARTIAL = "partial"
 
     STATUS_CHOICES = [
-        (STATUS_PENDING, "Pending"),
-        (STATUS_PAID, "Paid"),
-        (STATUS_LATE, "Late"),
-        (STATUS_PARTIAL, "Partial"),
+        (STATUS_PENDING, "معلق"),
+        (STATUS_PAID, "مدفوع"),
+        (STATUS_LATE, "متأخر"),
+        (STATUS_PARTIAL, "جزئي"),
     ]
 
     PAYMENT_CASH = "cash"
@@ -180,9 +180,9 @@ class Installment(models.Model):
     PAYMENT_INSTAPAY = "instapay"
 
     PAYMENT_METHOD_CHOICES = [
-        (PAYMENT_CASH, "Cash"),
-        (PAYMENT_WALLET, "Wallet"),
-        (PAYMENT_INSTAPAY, "Instapay"),
+        (PAYMENT_CASH, "نقدي"),
+        (PAYMENT_WALLET, "محفظة"),
+        (PAYMENT_INSTAPAY, "إنستاباي"),
     ]
 
     contract = models.ForeignKey(
@@ -228,9 +228,9 @@ class Notification(models.Model):
     TYPE_INFO = "info"
 
     NOTIFICATION_TYPE_CHOICES = [
-        (TYPE_REMINDER, "Reminder"),
-        (TYPE_OVERDUE, "Overdue"),
-        (TYPE_INFO, "Info"),
+        (TYPE_REMINDER, "تذكير"),
+        (TYPE_OVERDUE, "متأخر"),
+        (TYPE_INFO, "معلومة"),
     ]
 
     contract = models.ForeignKey(
@@ -272,5 +272,6 @@ class Settings(models.Model):
 
     def __str__(self):
         return self.business_name
+
 
 
