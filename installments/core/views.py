@@ -175,6 +175,14 @@ class ContractForm(BootstrapModelForm):
         label="هاتف عميل جديد",
         required=False,
     )
+    new_supplier_name = forms.CharField(
+        label="اسم تاجر جديد",
+        required=False,
+    )
+    new_supplier_phone = forms.CharField(
+        label="هاتف تاجر جديد",
+        required=False,
+    )
     new_product_name = forms.CharField(
         label="اسم منتج جديد",
         required=False,
@@ -199,6 +207,7 @@ class ContractForm(BootstrapModelForm):
         model = Contract
         fields = [
             "customer",
+            "supplier",
             "product",
             "product_name",
             "actual_cost",
@@ -215,6 +224,7 @@ class ContractForm(BootstrapModelForm):
         ]
         labels = {
             "customer": "العميل",
+            "supplier": "التاجر (المورد)",
             "product": "منتج مسجل",
             "product_name": "اسم المنتج",
             "actual_cost": "سعر الشراء الفعلي",
@@ -251,6 +261,7 @@ class ContractForm(BootstrapModelForm):
         self.fields["interest_rate"].required = False
         self.fields["installment_amount"].required = False
         self.fields["customer"].required = False
+        self.fields["supplier"].required = False
         self.fields["product"].required = False
         self.fields["product_name"].required = False
         self.fields["payment_due_day"].min_value = 1
@@ -259,6 +270,8 @@ class ContractForm(BootstrapModelForm):
             for field_name in [
                 "new_customer_name",
                 "new_customer_phone",
+                "new_supplier_name",
+                "new_supplier_phone",
                 "new_product_name",
                 "new_product_brand",
                 "new_product_estimated_price",
@@ -267,12 +280,16 @@ class ContractForm(BootstrapModelForm):
                 self.fields.pop(field_name, None)
         else:
             self.fields["new_customer_name"].widget.attrs["list"] = "customerSuggestions"
+            self.fields["new_supplier_name"].widget.attrs["list"] = "supplierSuggestions"
             self.fields["new_product_name"].widget.attrs["list"] = "productSuggestions"
             self.order_fields(
                 [
                     "customer",
                     "new_customer_name",
                     "new_customer_phone",
+                    "supplier",
+                    "new_supplier_name",
+                    "new_supplier_phone",
                     "product",
                     "new_product_name",
                     "new_product_brand",
@@ -459,6 +476,8 @@ def _find_existing_product(name, brand=""):
 def _apply_contract_form_entities(contract, cleaned_data, files=None):
     new_customer_name = (cleaned_data.get("new_customer_name") or "").strip()
     new_customer_phone = (cleaned_data.get("new_customer_phone") or "").strip()
+    new_supplier_name = (cleaned_data.get("new_supplier_name") or "").strip()
+    new_supplier_phone = (cleaned_data.get("new_supplier_phone") or "").strip()
     new_product_name = (cleaned_data.get("new_product_name") or "").strip()
     new_product_brand = (cleaned_data.get("new_product_brand") or "").strip()
     new_product_estimated_price = cleaned_data.get("new_product_estimated_price")
@@ -482,6 +501,29 @@ def _apply_contract_form_entities(contract, cleaned_data, files=None):
             customer.name = new_customer_name
             customer.save(update_fields=["name"])
         contract.customer = customer
+
+    # Handle supplier: inline create new or use existing
+    if new_supplier_name:
+        existing_supplier = None
+        if new_supplier_phone:
+            existing_supplier = Supplier.objects.filter(phone=new_supplier_phone).first()
+        if not existing_supplier:
+            existing_supplier = Supplier.objects.filter(name__iexact=new_supplier_name).order_by("id").first()
+        if existing_supplier:
+            # Update phone if missing
+            if new_supplier_phone and not existing_supplier.phone:
+                existing_supplier.phone = new_supplier_phone
+                existing_supplier.save(update_fields=["phone"])
+            contract.supplier = existing_supplier
+        else:
+            # Create new supplier
+            supplier = Supplier.objects.create(
+                name=new_supplier_name,
+                phone=new_supplier_phone or "",
+            )
+            contract.supplier = supplier
+    elif cleaned_data.get("supplier"):
+        contract.supplier = cleaned_data["supplier"]
 
     if new_product_name:
         product = _find_existing_product(new_product_name, new_product_brand)
@@ -749,6 +791,7 @@ def _contract_form_context(form, title, is_create):
         "title": title,
         "is_create": is_create,
         "customer_suggestions": Customer.objects.order_by("name"),
+        "supplier_suggestions": Supplier.objects.order_by("name"),
         "product_suggestions": Product.objects.order_by("name", "brand"),
     }
 

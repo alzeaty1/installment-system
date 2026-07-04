@@ -40,6 +40,7 @@
         </section>
         <div class="mt-3"><button class="btn btn-primary">حفظ</button> <a class="btn btn-outline-secondary" href="{% url 'core:contract_list' %}">رجوع</a></div>
         {% if customer_suggestions %}<datalist id="customerSuggestions">{% for customer in customer_suggestions %}<option value="{{ customer.name }}">{{ customer.phone }}</option>{% endfor %}</datalist>{% endif %}
+        {% if supplier_suggestions %}<datalist id="supplierSuggestions">{% for supplier in supplier_suggestions %}<option value="{{ supplier.name }}">{{ supplier.phone }}</option>{% endfor %}</datalist>{% endif %}
         {% if product_suggestions %}<datalist id="productSuggestions">{% for product in product_suggestions %}<option value="{{ product.name }}">{{ product.brand|default:'بدون ماركة' }}</option>{% endfor %}</datalist>{% endif %}
       </form>
     </div></div>

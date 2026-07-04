@@ -112,6 +112,12 @@ class Contract(models.Model):
 
     contract_number = models.CharField(max_length=50, unique=True, blank=True)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     product = models.ForeignKey(
         Product,
         on_delete=models.SET_NULL,
