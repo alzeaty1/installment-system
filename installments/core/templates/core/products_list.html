@@ -1,8 +1,7 @@
-﻿{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}
 {% block title %}المنتجات{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3"><h2>المنتجات</h2><a class="btn btn-primary" href="{% url 'core:product_create' %}">إضافة منتج</a></div>
 <form class="row g-2 mb-3"><div class="col-md-10"><input class="form-control" name="q" value="{{ query }}" placeholder="بحث بالاسم أو الماركة"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">بحث</button></div></form>
-<div class="row g-3">{% for product in products %}<div class="col-md-4"><div class="card stat h-100">{% if product.image %}<img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">{% endif %}<div class="card-body"><h5>{{ product.name }}</h5><p class="text-muted mb-1">{{ product.brand|default:'بدون ماركة' }} - {{ product.category|default:'بدون فئة' }}</p><p class="money">{{ product.estimated_price|default:0|floatformat:2 }} جنيه</p><a class="btn btn-sm btn-outline-primary" href="{% url 'core:product_detail' product.id %}">عرض</a></div></div></div>{% empty %}<div class="col-12"><div class="alert alert-info">لا توجد منتجات.</div></div>{% endfor %}</div>
+<div class="row g-3">{% for product in products %}<div class="col-md-4"><div class="card stat h-100">{% if product.image %}<img src="{{ product.image.url }}" class="card-img-top image-thumb js-fullscreen-image" data-fullscreen-src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}<div class="card-body"><h5>{{ product.name }}</h5><p class="text-muted mb-1">{{ product.brand|default:'بدون ماركة' }} - {{ product.category|default:'بدون فئة' }}</p><p class="money">{{ product.estimated_price|default:0|floatformat:2 }} جنيه</p><a class="btn btn-sm btn-outline-primary" href="{% url 'core:product_detail' product.id %}">عرض</a></div></div></div>{% empty %}<div class="col-12"><div class="alert alert-info">لا توجد منتجات.</div></div>{% endfor %}</div>
 {% endblock %}
-

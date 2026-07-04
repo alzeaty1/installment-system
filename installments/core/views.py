@@ -1,11 +1,11 @@
-﻿import calendar
+import calendar
 import json
 from decimal import Decimal
 
 from django import forms
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,6 +31,14 @@ MONEY_ZERO = Decimal("0.00")
 
 def _sum(queryset, field):
     return queryset.aggregate(total=Sum(field, default=MONEY_ZERO))["total"] or MONEY_ZERO
+
+
+def _remaining_installments_total(queryset):
+    return (
+        queryset.exclude(status=Installment.STATUS_PAID)
+        .aggregate(total=Sum(F("amount") - F("paid_amount"), default=MONEY_ZERO))["total"]
+        or MONEY_ZERO
+    )
 
 
 def _settings():
@@ -68,6 +76,11 @@ class BootstrapModelForm(forms.ModelForm):
 
 
 class CustomerForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Customer
         fields = ["name", "phone", "national_id", "address", "whatsapp"]
@@ -82,6 +95,11 @@ class CustomerForm(BootstrapModelForm):
 
 
 class SupplierForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Supplier
         fields = ["name", "phone", "address", "category", "notes"]
@@ -99,6 +117,11 @@ class SupplierForm(BootstrapModelForm):
 
 
 class ProductForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Product
         fields = ["name", "brand", "category", "estimated_price", "image"]
@@ -112,6 +135,11 @@ class ProductForm(BootstrapModelForm):
 
 
 class SupplierPurchaseForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = SupplierPurchase
         fields = [
@@ -139,6 +167,34 @@ class SupplierPurchaseForm(BootstrapModelForm):
 
 
 class ContractForm(BootstrapModelForm):
+    new_customer_name = forms.CharField(
+        label="اسم عميل جديد",
+        required=False,
+    )
+    new_customer_phone = forms.CharField(
+        label="هاتف عميل جديد",
+        required=False,
+    )
+    new_product_name = forms.CharField(
+        label="اسم منتج جديد",
+        required=False,
+    )
+    new_product_brand = forms.CharField(
+        label="ماركة منتج جديد",
+        required=False,
+    )
+    new_product_estimated_price = forms.DecimalField(
+        label="سعر تقديري لمنتج جديد",
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+    )
+
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Contract
         fields = [
@@ -179,6 +235,7 @@ class ContractForm(BootstrapModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        allow_inline_create = kwargs.pop("allow_inline_create", True)
         super().__init__(*args, **kwargs)
         self.fields["calculation_mode"].choices = [
             ("A", "A - القسط وعدد الشهور"),
@@ -193,11 +250,86 @@ class ContractForm(BootstrapModelForm):
         ]
         self.fields["interest_rate"].required = False
         self.fields["installment_amount"].required = False
+        self.fields["customer"].required = False
+        self.fields["product"].required = False
+        self.fields["product_name"].required = False
         self.fields["payment_due_day"].min_value = 1
         self.fields["payment_due_day"].max_value = 31
+        if not allow_inline_create:
+            for field_name in [
+                "new_customer_name",
+                "new_customer_phone",
+                "new_product_name",
+                "new_product_brand",
+                "new_product_estimated_price",
+                "new_product_image",
+            ]:
+                self.fields.pop(field_name, None)
+        else:
+            self.fields["new_customer_name"].widget.attrs["list"] = "customerSuggestions"
+            self.fields["new_product_name"].widget.attrs["list"] = "productSuggestions"
+            self.order_fields(
+                [
+                    "customer",
+                    "new_customer_name",
+                    "new_customer_phone",
+                    "product",
+                    "new_product_name",
+                    "new_product_brand",
+                    "new_product_estimated_price",
+                    "new_product_image",
+                    "product_name",
+                    "actual_cost",
+                    "customer_price",
+                    "down_payment",
+                    "calculation_mode",
+                    "interest_rate",
+                    "months_count",
+                    "installment_amount",
+                    "start_date",
+                    "payment_due_day",
+                    "status",
+                    "notes",
+                ]
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        customer = cleaned_data.get("customer")
+        new_customer_name = (cleaned_data.get("new_customer_name") or "").strip()
+        new_customer_phone = (cleaned_data.get("new_customer_phone") or "").strip()
+        product = cleaned_data.get("product")
+        new_product_name = (cleaned_data.get("new_product_name") or "").strip()
+        product_name = (cleaned_data.get("product_name") or "").strip()
+
+        existing_customer = None
+        if new_customer_phone:
+            existing_customer = Customer.objects.filter(phone=new_customer_phone).first()
+        if not existing_customer and new_customer_name:
+            existing_customer = Customer.objects.filter(
+                name__iexact=new_customer_name
+            ).order_by("id").first()
+
+        if not customer and not new_customer_name:
+            self.add_error("customer", "اختر عميل مسجل أو اكتب اسم عميل جديد.")
+        if new_customer_name and not new_customer_phone and not existing_customer:
+            self.add_error("new_customer_phone", "رقم الهاتف مطلوب عند إضافة عميل جديد.")
+        if not product_name:
+            if new_product_name:
+                cleaned_data["product_name"] = new_product_name
+            elif product:
+                cleaned_data["product_name"] = product.name
+            else:
+                self.add_error(
+                    "product_name",
+                    "اختر منتج مسجل أو اكتب اسم المنتج.",
+                )
+
+        return cleaned_data
 
 
 class InstallmentPaymentForm(BootstrapModelForm):
+
     class Meta:
         model = Installment
         fields = ["paid_amount", "paid_date", "payment_method", "notes"]
@@ -220,8 +352,22 @@ class InstallmentPaymentForm(BootstrapModelForm):
             ("instapay", "إنستاباي"),
         ]
 
+    def clean_paid_amount(self):
+        paid_amount = self.cleaned_data["paid_amount"]
+        remaining = self.instance.amount - self.instance.paid_amount
+        if paid_amount <= 0:
+            raise forms.ValidationError("مبلغ الدفعة يجب أن يكون أكبر من صفر.")
+        if paid_amount > remaining:
+            raise forms.ValidationError("مبلغ الدفعة أكبر من المتبقي على القسط.")
+        return paid_amount
+
 
 class ExpenseForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Expense
         fields = ["title", "amount", "expense_date", "category", "notes"]
@@ -239,6 +385,11 @@ class ExpenseForm(BootstrapModelForm):
 
 
 class SettingsForm(BootstrapModelForm):
+    new_product_image = forms.ImageField(
+        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+        required=False,
+    )
+
     class Meta:
         model = Settings
         fields = [
@@ -292,6 +443,95 @@ def _generate_installments(contract):
             )
         )
     Installment.objects.bulk_create(installments)
+
+
+def _find_existing_product(name, brand=""):
+    queryset = Product.objects.filter(name__iexact=name)
+    if brand:
+        branded = queryset.filter(brand__iexact=brand).order_by("id").first()
+        if branded:
+            return branded
+    if queryset.count() == 1:
+        return queryset.first()
+    return queryset.order_by("id").first()
+
+
+def _apply_contract_form_entities(contract, cleaned_data, files=None):
+    new_customer_name = (cleaned_data.get("new_customer_name") or "").strip()
+    new_customer_phone = (cleaned_data.get("new_customer_phone") or "").strip()
+    new_product_name = (cleaned_data.get("new_product_name") or "").strip()
+    new_product_brand = (cleaned_data.get("new_product_brand") or "").strip()
+    new_product_estimated_price = cleaned_data.get("new_product_estimated_price")
+    new_product_image = cleaned_data.get("new_product_image")
+    product_name = (cleaned_data.get("product_name") or "").strip()
+    files = files or {}
+
+    if new_customer_name:
+        if new_customer_phone:
+            customer, created = Customer.objects.get_or_create(
+                phone=new_customer_phone,
+                defaults={"name": new_customer_name},
+            )
+        else:
+            customer = Customer.objects.filter(name__iexact=new_customer_name).order_by("id").first()
+            created = False
+        if not customer:
+            customer = Customer.objects.create(name=new_customer_name, phone=new_customer_phone)
+            created = True
+        if not created and customer.name != new_customer_name:
+            customer.name = new_customer_name
+            customer.save(update_fields=["name"])
+        contract.customer = customer
+
+    if new_product_name:
+        product = _find_existing_product(new_product_name, new_product_brand)
+        if not product:
+            product = Product.objects.create(
+                name=new_product_name,
+                brand=new_product_brand,
+                estimated_price=new_product_estimated_price,
+                image=new_product_image,
+            )
+        else:
+            update_fields = []
+            if new_product_estimated_price and not product.estimated_price:
+                product.estimated_price = new_product_estimated_price
+                update_fields.append("estimated_price")
+            if new_product_image and not product.image:
+                product.image = new_product_image
+                update_fields.append("image")
+            if update_fields:
+                product.save(update_fields=update_fields)
+        contract.product = product
+        contract.product_name = product.name
+    elif cleaned_data.get("product"):
+        contract.product = cleaned_data["product"]
+        contract.product_name = product_name or contract.product.name
+    else:
+        contract.product_name = product_name
+
+
+CONTRACT_SCHEDULE_FIELDS = [
+    "customer_price",
+    "down_payment",
+    "calculation_mode",
+    "interest_rate",
+    "months_count",
+    "installment_amount",
+    "start_date",
+    "payment_due_day",
+]
+
+
+def _contract_schedule_values(contract):
+    return {field: getattr(contract, field) for field in CONTRACT_SCHEDULE_FIELDS}
+
+
+def _contract_schedule_fields_changed(original_values, cleaned_data):
+    return any(
+        original_values[field] != cleaned_data.get(field)
+        for field in CONTRACT_SCHEDULE_FIELDS
+    )
 
 
 def _mark_late_installments():
@@ -390,7 +630,7 @@ def customer_detail(request, id):
         "contracts": contracts,
         "installments": installments,
         "total_paid": _sum(installments, "paid_amount"),
-        "total_due": _sum(installments.exclude(status=Installment.STATUS_PAID), "amount"),
+        "total_due": _remaining_installments_total(installments),
     }
     return render(request, "core/customers_detail.html", context)
 
@@ -463,7 +703,18 @@ def product_detail(request, id):
     product = get_object_or_404(Product, id=id)
     contracts = Contract.objects.filter(product=product).select_related("customer").order_by("-created_at")
     purchases = SupplierPurchase.objects.filter(product=product).select_related("supplier").order_by("-purchase_date")
-    return render(request, "core/products_detail.html", {"product": product, "contracts": contracts, "purchases": purchases})
+    return render(
+        request,
+        "core/products_detail.html",
+        {
+            "product": product,
+            "contracts": contracts,
+            "purchases": purchases,
+            "purchase_count": purchases.count(),
+            "contracts_count": contracts.count(),
+            "total_purchase_cost": _sum(purchases, "purchase_price"),
+        },
+    )
 
 
 def purchase_list(request):
@@ -492,6 +743,16 @@ def contract_list(request):
     return render(request, "core/contracts_list.html", {"contracts": contracts, "customers": Customer.objects.order_by("name"), "status": status, "customer_id": customer_id})
 
 
+def _contract_form_context(form, title, is_create):
+    return {
+        "form": form,
+        "title": title,
+        "is_create": is_create,
+        "customer_suggestions": Customer.objects.order_by("name"),
+        "product_suggestions": Product.objects.order_by("name", "brand"),
+    }
+
+
 def contract_create(request):
     if request.GET.get("calculate") == "1":
         try:
@@ -507,11 +768,12 @@ def contract_create(request):
         "interest_rate": settings.default_interest_rate,
         "calculation_mode": "B",
     }
-    form = ContractForm(request.POST or None, initial=initial)
+    form = ContractForm(request.POST or None, request.FILES or None, initial=initial, allow_inline_create=True)
     if request.method == "POST" and form.is_valid():
         try:
             with transaction.atomic():
                 contract = form.save(commit=False)
+                _apply_contract_form_entities(contract, form.cleaned_data, request.FILES)
                 _set_contract_calculations(contract, form.cleaned_data)
                 contract.save()
                 _generate_installments(contract)
@@ -519,7 +781,7 @@ def contract_create(request):
             return redirect("core:contract_detail", id=contract.id)
         except Exception as exc:
             form.add_error(None, f"تعذر حساب العقد: {exc}")
-    return render(request, "core/contracts_form.html", {"form": form, "title": "إضافة عقد", "is_create": True})
+    return render(request, "core/contracts_form.html", _contract_form_context(form, "إضافة عقد", True))
 
 
 def contract_detail(request, id):
@@ -537,17 +799,36 @@ def contract_edit(request, id):
             return JsonResponse({"error": str(exc)}, status=400)
 
     contract = get_object_or_404(Contract, id=id)
-    form = ContractForm(request.POST or None, instance=contract)
+    original_schedule_values = _contract_schedule_values(contract)
+    form = ContractForm(request.POST or None, request.FILES or None, instance=contract, allow_inline_create=False)
     if request.method == "POST" and form.is_valid():
         try:
-            contract = form.save(commit=False)
-            _set_contract_calculations(contract, form.cleaned_data)
-            contract.save()
+            schedule_changed = _contract_schedule_fields_changed(
+                original_schedule_values,
+                form.cleaned_data,
+            )
+            has_payments = contract.installments.filter(paid_amount__gt=0).exists()
+            if schedule_changed and has_payments:
+                form.add_error(
+                    None,
+                    "لا يمكن تعديل حسابات أو جدول عقد عليه مدفوعات مسجلة.",
+                )
+                raise ValueError("contract schedule has existing payments")
+
+            with transaction.atomic():
+                contract = form.save(commit=False)
+                _apply_contract_form_entities(contract, form.cleaned_data, request.FILES)
+                _set_contract_calculations(contract, form.cleaned_data)
+                contract.save()
+                if schedule_changed:
+                    contract.installments.all().delete()
+                    _generate_installments(contract)
             messages.success(request, "تم تحديث العقد.")
             return redirect("core:contract_detail", id=contract.id)
         except Exception as exc:
-            form.add_error(None, f"تعذر حساب العقد: {exc}")
-    return render(request, "core/contracts_form.html", {"form": form, "title": "تعديل عقد", "is_create": False})
+            if not form.non_field_errors():
+                form.add_error(None, f"تعذر حساب العقد: {exc}")
+    return render(request, "core/contracts_form.html", _contract_form_context(form, "تعديل عقد", False))
 
 
 def contract_mark_completed(request, id):
@@ -555,6 +836,11 @@ def contract_mark_completed(request, id):
     if request.method == "POST":
         contract.status = Contract.STATUS_COMPLETED
         contract.save(update_fields=["status"])
+        contract.installments.exclude(status=Installment.STATUS_PAID).update(
+            paid_amount=F("amount"),
+            paid_date=_today(),
+            status=Installment.STATUS_PAID,
+        )
         messages.success(request, "تم تعليم العقد كمكتمل.")
     return redirect("core:contract_detail", id=contract.id)
 
@@ -632,13 +918,13 @@ def customer_statement(request, id):
     customer = get_object_or_404(Customer, id=id)
     contracts = Contract.objects.filter(customer=customer).order_by("-created_at")
     installments = Installment.objects.filter(contract__customer=customer).select_related("contract").order_by("due_date")
-    return render(request, "core/reports_customer_statement.html", {"customer": customer, "contracts": contracts, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _sum(installments.exclude(status=Installment.STATUS_PAID), "amount")})
+    return render(request, "core/reports_customer_statement.html", {"customer": customer, "contracts": contracts, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _remaining_installments_total(installments)})
 
 
 def customer_statement_pdf(request, id):
     customer = get_object_or_404(Customer, id=id)
     installments = Installment.objects.filter(contract__customer=customer).select_related("contract").order_by("due_date")
-    return _pdf_response("core/reports_customer_statement_pdf.html", {"request": request, "customer": customer, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _sum(installments.exclude(status=Installment.STATUS_PAID), "amount")}, f"customer-{customer.id}-statement.pdf")
+    return _pdf_response("core/reports_customer_statement_pdf.html", {"request": request, "customer": customer, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _remaining_installments_total(installments)}, f"customer-{customer.id}-statement.pdf")
 
 
 def investment_report(request):
