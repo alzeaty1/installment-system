@@ -66,11 +66,11 @@ def _sum(queryset, field):
 
 
 def _remaining_installments_total(queryset):
-    return (
-        queryset.exclude(status=Installment.STATUS_PAID)
-        .aggregate(total=Sum(F("amount") - F("paid_amount"), default=MONEY_ZERO))["total"]
+    total = (
+        queryset.aggregate(total=Sum(F("amount") - F("paid_amount"), default=MONEY_ZERO))["total"]
         or MONEY_ZERO
     )
+    return max(total, MONEY_ZERO)
 
 
 def _settings():
@@ -1262,36 +1262,8 @@ def installment_pay(request, id):
         payment_amount = form.cleaned_data["paid_amount"]
         installment = form.save(commit=False)
         installment.paid_amount = previous_paid + payment_amount
-        excess_pay = Decimal("0")
         if installment.paid_amount >= installment.amount:
             installment.status = Installment.STATUS_PAID
-            excess_pay = installment.paid_amount - installment.amount
-            if excess_pay > 0:
-                next_installments = Installment.objects.filter(
-                    contract=installment.contract,
-                    installment_number__gt=installment.installment_number,
-                    account=request.current_account,
-                ).order_by("installment_number")
-                for nx in next_installments:
-                    available = nx.amount - nx.paid_amount
-                    if available <= 0:
-                        continue
-                    if excess_pay >= available:
-                        excess_pay -= available
-                        nx.paid_amount = nx.amount
-                        nx.status = Installment.STATUS_PAID
-                        nx.save(update_fields=["paid_amount", "status"])
-                    else:
-                        nx.paid_amount += excess_pay
-                        if nx.paid_amount >= nx.amount:
-                            nx.status = Installment.STATUS_PAID
-                        else:
-                            nx.status = Installment.STATUS_PARTIAL
-                        nx.save(update_fields=["paid_amount", "status"])
-                        excess_pay = Decimal("0")
-                        break
-                if excess_pay > 0:
-                    messages.info(request, f"تم ترحيل {excess_pay} جنيه كرصيد للأقساط القادمة.")
         elif installment.paid_amount > 0:
             installment.status = Installment.STATUS_PARTIAL
         else:
