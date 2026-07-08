@@ -381,6 +381,14 @@ class Contract(models.Model):
         )["s"]
         return self.total_paid >= expected
 
+    @property
+    def progress_percentage(self):
+        """Progress based on actual money paid vs total contract value."""
+        if self.total_amount <= 0:
+            return 0
+        pct = (self.total_paid / self.total_amount) * 100
+        return min(round(pct, 1), 100)
+
 
 class Installment(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")

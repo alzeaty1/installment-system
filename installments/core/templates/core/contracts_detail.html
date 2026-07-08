@@ -43,7 +43,18 @@
       <div class="text-muted small">{{ paid_count }} / {{ total_count }} مدفوع</div>
     </div>
     <div class="progress bg-light mb-3" style="height: 20px; border-radius: 10px;">
-      <div class="progress-bar bg-success" style="width: {{ progress }}%;">{{ progress }}%</div>
+      {% with pct=contract.progress_percentage %}
+      <div class="progress-bar 
+        {% if pct >= 100 %}bg-success
+        {% elif pct >= 80 %}bg-info
+        {% elif pct >= 50 %}bg-warning
+        {% else %}bg-danger{% endif %}
+        " style="width: {{ pct }}%;">{{ pct }}%</div>
+      {% endwith %}
+    </div>
+    <div class="d-flex justify-content-between small text-muted mb-2">
+      <span>المدفوع: {{ total_paid|floatformat:2 }} / {{ contract.total_amount|floatformat:2 }} جنيه</span>
+      <span>({{ contract.progress_percentage }}%)</span>
     </div>
     <div class="table-responsive">
       <table class="table">

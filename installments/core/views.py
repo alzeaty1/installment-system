@@ -1043,12 +1043,12 @@ def contract_detail(request, id):
     
     # حساب التقدم
     total_paid = _sum(installments, "paid_amount")
-    paid_count = installments.filter(status=Installment.STATUS_PAID).count()
+    paid_count = installments.filter(
+        paid_amount__gt=0
+    ).count()
     total_count = installments.count()
-    progress = 0
-    if total_count > 0:
-        progress = int((paid_count / total_count) * 100)
-        
+    progress = contract.progress_percentage
+
     return render(request, "core/contracts_detail.html", {
         "contract": contract,
         "installments": installments,
@@ -1065,13 +1065,15 @@ def contract_summary(request, id):
     installments = contract.installments.order_by("installment_number")
     total_paid = _sum(installments, "paid_amount")
     
-    # حساب التقدم
-    paid_count = installments.filter(status=Installment.STATUS_PAID).count()
+    # حساب التقدم — نسبة الفلوس المدفوعة من إجمالي العقد
+    paid_count = installments.filter(
+        paid_amount__gt=0
+    ).count()
     total_count = installments.count()
-    progress = 0
-    if total_count > 0:
-        progress = int((paid_count / total_count) * 100)
-    
+    progress = contract.progress_percentage
+
+    total_remaining = contract.total_amount - total_paid
+
     # إعداد رسالة واتساب للشيت
     from urllib.parse import quote
     lines = [
