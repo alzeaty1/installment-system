@@ -1276,6 +1276,12 @@ def installment_pay(request, id):
             try:
                 installment.receiver_id = int(receiver_id)
                 request.session["last_receiver_id"] = int(receiver_id)
+                # Also populate received_by for backward compat
+                try:
+                    receiver = Receiver.objects.get(id=int(receiver_id), account=request.current_account)
+                    installment.received_by = receiver.name
+                except Receiver.DoesNotExist:
+                    pass
             except (ValueError, TypeError):
                 pass
         
