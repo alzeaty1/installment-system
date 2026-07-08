@@ -1,6 +1,105 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}الإعدادات{% endblock %}
 {% block content %}
-<h2 class="mb-3">الإعدادات</h2><div class="card stat"><div class="card-body"><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div class="mb-3{% if field.field.widget.input_type == 'checkbox' %} form-check{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}<button class="btn btn-primary">حفظ</button></form></div></div>
-{% endblock %}
+<h2 class="mb-3">الإعدادات</h2>
 
+<div class="card stat mb-3">
+  <div class="card-body">
+    <h4 class="mb-3">إدارة الحسابات</h4>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>اسم الحساب</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead>
+        <tbody>
+          {% for acc in accounts %}
+          <tr>
+            <td>{{ acc.name }}</td>
+            <td>{{ acc.created_at|date:"Y-m-d" }}</td>
+            <td>
+              {% if acc.id == current_account.id %}
+                <span class="badge bg-success">الحالي</span>
+              {% else %}
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'core:account_switch' acc.id %}">تبديل</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <form method="post" action="{% url 'core:account_create' %}" class="row g-2">
+      {% csrf_token %}
+      <div class="col-auto"><input type="text" name="name" class="form-control" placeholder="اسم الحساب الجديد" required></div>
+      <div class="col-auto"><button class="btn btn-success" type="submit">إنشاء حساب جديد</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card stat mb-3">
+  <div class="card-body">
+    <form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div class="mb-3{% if field.field.widget.input_type == 'checkbox' %} form-check{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{% else %}<label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}<button class="btn btn-primary">حفظ</button></form>
+  </div>
+</div>
+
+<div class="card stat mb-3">
+  <div class="card-body">
+    <h4 class="mb-3">أنواع المنتجات</h4>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>النوع</th><th>إجراءات</th></tr></thead>
+        <tbody>
+          {% for pt in product_types %}
+          <tr>
+            <td>{{ pt.name }}</td>
+            <td>
+              <form class="d-inline" method="post" action="{% url 'core:product_type_delete' pt.id %}" onsubmit="return confirm('حذف النوع {{ pt.name }}؟')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">حذف</button></form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <form method="post" action="{% url 'core:product_type_create' %}" class="row g-2">
+      {% csrf_token %}
+      <div class="col-auto"><input type="text" name="name" class="form-control" placeholder="اسم النوع الجديد" required></div>
+      <div class="col-auto"><button class="btn btn-success" type="submit">إضافة نوع</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card stat">
+  <div class="card-body">
+    <h4 class="mb-3">النسخ الاحتياطية (Backup)</h4>
+    <form method="post" action="{% url 'core:backup_create' %}" class="mb-3">
+      {% csrf_token %}
+      <button class="btn btn-success" type="submit">إنشاء نسخة احتياطية الآن</button>
+    </form>
+    {% if backups %}
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>اسم الملف</th><th>الحجم</th><th>التاريخ</th><th>إجراءات</th></tr></thead>
+          <tbody>
+            {% for b in backups %}
+            <tr>
+              <td dir="ltr"><small>{{ b.name }}</small></td>
+              <td>{{ b.size_display }}</td>
+              <td>{{ b.modified }}</td>
+              <td class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'core:backup_download' filename=b.name %}">تحميل</a>
+                <form method="post" action="{% url 'core:backup_restore' filename=b.name %}" onsubmit="return confirm('سيتم استبدال قاعدة البيانات الحالية بهذه النسخة. هل أنت متأكد؟')">
+                  {% csrf_token %}<button class="btn btn-sm btn-outline-warning" type="submit">استعادة</button>
+                </form>
+                <form method="post" action="{% url 'core:backup_delete' filename=b.name %}" onsubmit="return confirm('هل أنت متأكد من حذف هذه النسخة؟')">
+                  {% csrf_token %}<button class="btn btn-sm btn-outline-danger" type="submit">حذف</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted">لا توجد نسخ احتياطية بعد. اضغط الزر أعلاه لإنشاء أول نسخة.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

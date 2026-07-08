@@ -1,8 +1,70 @@
-﻿{% extends 'core/base.html' %}
+{% extends 'core/base.html' %}
 {% block title %}الأقساط{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>{{ title|default:'الأقساط' }}</h2><div><a class="btn btn-outline-primary" href="{% url 'core:installment_due_today' %}">أقساط اليوم</a> <a class="btn btn-outline-danger" href="{% url 'core:installment_overdue' %}">المتأخرات</a></div></div>
-<form class="row g-2 mb-3"><div class="col-md-3"><select class="form-select" name="status"><option value="">كل الحالات</option><option value="pending" {% if status == 'pending' %}selected{% endif %}>معلق</option><option value="paid" {% if status == 'paid' %}selected{% endif %}>مدفوع</option><option value="late" {% if status == 'late' %}selected{% endif %}>متأخر</option><option value="partial" {% if status == 'partial' %}selected{% endif %}>جزئي</option></select></div><div class="col-md-3"><input class="form-control" type="date" name="from" value="{{ date_from }}"></div><div class="col-md-3"><input class="form-control" type="date" name="to" value="{{ date_to }}"></div><div class="col-md-3"><button class="btn btn-outline-primary w-100">تصفية</button></div></form>
-<div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>العقد</th><th>العميل</th><th>#</th><th>الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>الحالة</th><th></th></tr></thead><tbody>{% for installment in installments %}<tr><td><a href="{% url 'core:contract_detail' installment.contract.id %}">{{ installment.contract.contract_number }}</a></td><td>{{ installment.contract.customer.name }}</td><td>{{ installment.installment_number }}</td><td>{{ installment.due_date }}</td><td class="money">{{ installment.amount|floatformat:2 }} جنيه</td><td class="money">{{ installment.paid_amount|floatformat:2 }} جنيه</td><td>{{ installment.get_status_display }}</td><td><a class="btn btn-sm btn-outline-success" href="{% url 'core:installment_pay' installment.id %}">دفع</a></td></tr>{% empty %}<tr><td colspan="8">لا توجد أقساط.</td></tr>{% endfor %}</tbody></table></div></div>
-{% endblock %}
+<h2 class="mb-4">{{ title|default:"قائمة الأقساط" }}</h2>
 
+<div class="card stat border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">الحالة</label>
+        <select name="status" class="form-select">
+          <option value="">الكل</option>
+          <option value="pending" {% if status == 'pending' %}selected{% endif %}>معلق</option>
+          <option value="paid" {% if status == 'paid' %}selected{% endif %}>مدفوع</option>
+          <option value="late" {% if status == 'late' %}selected{% endif %}>متأخر</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">من تاريخ</label>
+        <input type="date" name="from" class="form-control" value="{{ date_from }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">إلى تاريخ</label>
+        <input type="date" name="to" class="form-control" value="{{ date_to }}">
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">تصفية</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card stat border-0 shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>رقم العقد</th>
+            <th>العميل</th>
+            <th>القسط #</th>
+            <th>الاستحقاق</th>
+            <th>المبلغ</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inst in installments %}
+          <tr>
+            <td><a href="{% url 'core:contract_detail' inst.contract.id %}">{{ inst.contract.contract_number }}</a></td>
+            <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
+            <td>{{ inst.installment_number }}</td>
+            <td>{{ inst.due_date|date:"Y-m-d" }}</td>
+            <td class="money">{{ inst.amount|floatformat:2 }}</td>
+            <td>
+              {% if inst.status == 'pending' %}<span class="badge bg-warning text-dark">معلق</span>
+              {% elif inst.status == 'paid' %}<span class="badge bg-success">مدفوع</span>
+              {% elif inst.status == 'late' %}<span class="badge bg-danger">متأخر</span>
+              {% elif inst.status == 'partial' %}<span class="badge bg-info">جزئي</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted">لا توجد أقساط.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

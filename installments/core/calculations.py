@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 
 
 MONEY_PLACES = Decimal("0.01")
@@ -15,6 +15,15 @@ def _quantize_money(value):
 
 def _quantize_rate(value):
     return _decimal(value).quantize(RATE_PLACES, rounding=ROUND_HALF_UP)
+
+
+def round_up_to_nearest_5(value):
+    value = _decimal(value)
+    int_val = int(value.quantize(Decimal("1"), rounding=ROUND_UP))
+    remainder = int_val % 5
+    if remainder == 0:
+        return int_val
+    return int_val + (5 - remainder)
 
 
 def _validate_remaining_and_months(remaining, months_count):
@@ -66,13 +75,15 @@ def calculate_mode_b(remaining, interest_rate, months_count):
     interest = remaining * (interest_rate / Decimal("100"))
     total = remaining + interest
     installment = total / months_count
+    installment_rounded = _decimal(round_up_to_nearest_5(installment))
+    total_rounded = installment_rounded * months_count
 
     return {
         "remaining_amount": _quantize_money(remaining),
         "interest_rate": _quantize_rate(interest_rate),
-        "total_interest": _quantize_money(interest),
-        "total_amount": _quantize_money(total),
-        "installment_amount": _quantize_money(installment),
+        "total_interest": _quantize_money(total_rounded - remaining),
+        "total_amount": _quantize_money(total_rounded),
+        "installment_amount": _quantize_money(installment_rounded),
         "months_count": months_count,
     }
 

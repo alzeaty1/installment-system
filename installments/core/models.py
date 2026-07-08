@@ -1,87 +1,204 @@
 ﻿from decimal import Decimal
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+MAX_MONEY_AMOUNT = Decimal("100000.00")
+MONEY_VALIDATORS = [
+    MinValueValidator(Decimal("0.00")),
+    MaxValueValidator(MAX_MONEY_AMOUNT),
+]
+DAY_OF_MONTH_VALIDATORS = [MinValueValidator(1), MaxValueValidator(31)]
+
+
+class Account(models.Model):
+    name = models.CharField(max_length=255, verbose_name="اسم الحساب")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+
+    class Meta:
+        verbose_name = "حساب"
+        verbose_name_plural = "الحسابات"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Customer(models.Model):
-    name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=50, unique=True)
-    national_id = models.CharField(max_length=50, blank=True)
-    address = models.TextField(blank=True)
-    whatsapp = models.CharField(max_length=50, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+    phone = models.CharField(max_length=50, verbose_name="رقم الهاتف")
+    national_id = models.CharField(max_length=50, blank=True, verbose_name="الرقم القومي")
+    address = models.TextField(blank=True, verbose_name="العنوان")
+    whatsapp = models.CharField(max_length=50, blank=True, verbose_name="واتساب")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "عميل"
+        verbose_name_plural = "العملاء"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
 
 
 class SupplierCategory(models.Model):
-    name = models.CharField(max_length=255)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+
+    class Meta:
+        verbose_name = "فئة تاجر"
+        verbose_name_plural = "فئات التجار"
 
     def __str__(self):
         return self.name
 
 
 class Supplier(models.Model):
-    name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=50)
-    address = models.TextField(blank=True)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+    phone = models.CharField(max_length=50, verbose_name="رقم الهاتف")
+    address = models.TextField(blank=True, verbose_name="العنوان")
     category = models.ForeignKey(
         SupplierCategory,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        verbose_name="الفئة",
     )
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "تاجر"
+        verbose_name_plural = "التجار"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
 
 
 class ProductCategory(models.Model):
-    name = models.CharField(max_length=255)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+
+    class Meta:
+        verbose_name = "فئة منتج"
+        verbose_name_plural = "فئات المنتجات"
+
+    def __str__(self):
+        return self.name
+
+
+class ProductType(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="النوع")
+
+    class Meta:
+        verbose_name = "نوع منتج"
+        verbose_name_plural = "أنواع المنتجات"
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
 
 
 class Product(models.Model):
-    name = models.CharField(max_length=255)
-    brand = models.CharField(max_length=255, blank=True)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    name = models.CharField(max_length=255, verbose_name="الاسم")
+    brand = models.CharField(max_length=255, blank=True, verbose_name="الماركة")
     category = models.ForeignKey(
         ProductCategory,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        verbose_name="الفئة",
     )
+    product_type = models.ForeignKey(
+        ProductType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="النوع",
+    )
+    model_name = models.CharField(max_length=255, blank=True, verbose_name="الموديل")
     estimated_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
+        validators=MONEY_VALIDATORS,
+        verbose_name="السعر التقديري",
     )
-    image = models.ImageField(upload_to="products/", blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    image = models.ImageField(upload_to="products/", blank=True, verbose_name="صورة المنتج")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "منتج"
+        verbose_name_plural = "المنتجات"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["name"])]
 
     def __str__(self):
         return self.name
 
 
 class SupplierPurchase(models.Model):
-    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="التاجر",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="product_purchases",
+        verbose_name="العميل",
+    )
     product = models.ForeignKey(
         Product,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        related_name="purchase_records",
+        verbose_name="المنتج",
     )
-    product_name = models.CharField(max_length=255)
-    purchase_price = models.DecimalField(max_digits=12, decimal_places=2)
-    purchase_date = models.DateField()
-    image = models.ImageField(upload_to="supplier_purchases/", blank=True)
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    contract = models.ForeignKey(
+        "Contract",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_records",
+        verbose_name="العقد",
+    )
+    product_name = models.CharField(max_length=255, verbose_name="اسم المنتج")
+    purchase_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="سعر الشراء",
+    )
+    purchase_date = models.DateField(verbose_name="تاريخ الشراء")
+    image = models.ImageField(upload_to="supplier_purchases/", blank=True, verbose_name="صورة الفاتورة")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "عملية شراء منتج"
+        verbose_name_plural = "سجل شراء المنتجات"
+        ordering = ["-purchase_date"]
 
     def __str__(self):
         return self.product_name
@@ -110,43 +227,98 @@ class Contract(models.Model):
         (STATUS_CANCELLED, "ملغي"),
     ]
 
-    contract_number = models.CharField(max_length=50, unique=True, blank=True)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    contract_number = models.CharField(max_length=50, unique=True, blank=True, verbose_name="رقم العقد")
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name="العميل")
     supplier = models.ForeignKey(
         Supplier,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        verbose_name="التاجر",
     )
     product = models.ForeignKey(
         Product,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        verbose_name="المنتج",
     )
-    product_name = models.CharField(max_length=255)
-    actual_cost = models.DecimalField(max_digits=12, decimal_places=2)
-    customer_price = models.DecimalField(max_digits=12, decimal_places=2)
-    down_payment = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    remaining_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    interest_rate = models.DecimalField(max_digits=7, decimal_places=2)
-    total_interest = models.DecimalField(max_digits=12, decimal_places=2)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    months_count = models.IntegerField()
-    installment_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    product_name = models.CharField(max_length=255, verbose_name="اسم المنتج")
+    actual_cost = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="التكلفة الفعلية",
+    )
+    customer_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="سعر العميل",
+    )
+    down_payment = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=MONEY_VALIDATORS,
+        verbose_name="مقدم",
+    )
+    remaining_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="المبلغ المتبقي",
+    )
+    interest_rate = models.DecimalField(max_digits=7, decimal_places=2, verbose_name="نسبة الفائدة")
+    total_interest = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="إجمالي الفائدة",
+    )
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="إجمالي المبلغ",
+    )
+    months_count = models.IntegerField(verbose_name="عدد الأشهر")
+    installment_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="قيمة القسط",
+    )
     calculation_mode = models.CharField(
         max_length=1,
         choices=CALCULATION_MODE_CHOICES,
+        verbose_name="نوع الحساب",
     )
-    start_date = models.DateField()
-    payment_due_day = models.IntegerField(default=1)
+    start_date = models.DateField(verbose_name="تاريخ البداية")
+    payment_due_day = models.IntegerField(
+        default=1,
+        validators=DAY_OF_MONTH_VALIDATORS,
+        verbose_name="يوم الاستحقاق",
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_ACTIVE,
+        verbose_name="الحالة",
     )
-    notes = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "عقد"
+        verbose_name_plural = "العقود"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["start_date"]),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.contract_number:
@@ -169,6 +341,7 @@ class Contract(models.Model):
 
 
 class Installment(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
     STATUS_PENDING = "pending"
     STATUS_PAID = "paid"
     STATUS_LATE = "late"
@@ -195,40 +368,79 @@ class Installment(models.Model):
         Contract,
         on_delete=models.CASCADE,
         related_name="installments",
+        verbose_name="العقد",
     )
-    installment_number = models.IntegerField()
-    due_date = models.DateField()
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    paid_date = models.DateField(null=True, blank=True)
+    installment_number = models.IntegerField(verbose_name="رقم القسط")
+    due_date = models.DateField(verbose_name="تاريخ الاستحقاق")
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="المبلغ",
+    )
+    paid_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=MONEY_VALIDATORS,
+        verbose_name="المبلغ المدفوع",
+    )
+    paid_date = models.DateField(null=True, blank=True, verbose_name="تاريخ الدفع")
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
+        verbose_name="الحالة",
     )
     payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_METHOD_CHOICES,
         blank=True,
+        verbose_name="طريقة الدفع",
     )
-    notes = models.TextField(blank=True)
+    transfer_sender_account = models.CharField(max_length=100, blank=True, verbose_name="رقم المحفظة/الحساب المرسل منه")
+    transfer_sender_name = models.CharField(max_length=255, blank=True, verbose_name="اسم المرسل")
+    transfer_image = models.ImageField(upload_to="transfers/", blank=True, verbose_name="صورة التحويل")
+    received_by = models.CharField(max_length=255, blank=True, verbose_name="المستلم (كاش)")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    class Meta:
+        verbose_name = "قسط"
+        verbose_name_plural = "الأقساط"
+        ordering = ["installment_number"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["due_date"]),
+        ]
 
     def __str__(self):
         return f"{self.contract} - {self.installment_number}"
 
 
 class Expense(models.Model):
-    title = models.CharField(max_length=255)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    expense_date = models.DateField()
-    category = models.CharField(max_length=255, blank=True)
-    notes = models.TextField(blank=True)
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    title = models.CharField(max_length=255, verbose_name="العنوان")
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="المبلغ",
+    )
+    expense_date = models.DateField(verbose_name="تاريخ المصروف")
+    category = models.CharField(max_length=255, blank=True, verbose_name="الفئة")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+
+    class Meta:
+        verbose_name = "مصروف"
+        verbose_name_plural = "المصروفات"
+        ordering = ["-expense_date"]
 
     def __str__(self):
         return self.title
 
 
 class Notification(models.Model):
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
     TYPE_REMINDER = "reminder"
     TYPE_OVERDUE = "overdue"
     TYPE_INFO = "info"
@@ -244,20 +456,28 @@ class Notification(models.Model):
         on_delete=models.CASCADE,
         null=True,
         blank=True,
+        verbose_name="العقد",
     )
     installment = models.ForeignKey(
         Installment,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
+        verbose_name="القسط",
     )
-    message = models.TextField()
+    message = models.TextField(verbose_name="الرسالة")
     notification_type = models.CharField(
         max_length=20,
         choices=NOTIFICATION_TYPE_CHOICES,
+        verbose_name="نوع التنبيه",
     )
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False, verbose_name="مقروء")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+
+    class Meta:
+        verbose_name = "تنبيه"
+        verbose_name_plural = "التنبيهات"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.message[:50]
@@ -268,16 +488,65 @@ class Settings(models.Model):
         max_digits=7,
         decimal_places=2,
         default=Decimal("3.5"),
+        verbose_name="النسبة الشهرية الافتراضية %",
     )
-    default_payment_due_day = models.IntegerField(default=1)
+    default_payment_due_day = models.IntegerField(
+        default=1,
+        validators=DAY_OF_MONTH_VALIDATORS,
+        verbose_name="يوم الاستحقاق الافتراضي",
+    )
     business_name = models.CharField(
         max_length=255,
         default="نظام التقسيط",
+        verbose_name="اسم النشاط",
     )
-    whatsapp_enabled = models.BooleanField(default=True)
+    whatsapp_enabled = models.BooleanField(default=True, verbose_name="تفعيل واتساب")
+
+    class Meta:
+        verbose_name = "إعدادات"
+        verbose_name_plural = "الإعدادات"
 
     def __str__(self):
         return self.business_name
+
+
+class ActivityLog(models.Model):
+    ACTION_CREATE = "create"
+    ACTION_UPDATE = "update"
+    ACTION_DELETE = "delete"
+    ACTION_PAYMENT = "payment"
+    ACTION_RESET = "reset"
+    ACTION_MARK_COMPLETED = "mark_completed"
+    ACTION_OTHER = "other"
+
+    ACTION_CHOICES = [
+        (ACTION_CREATE, "إضافة"),
+        (ACTION_UPDATE, "تعديل"),
+        (ACTION_DELETE, "حذف"),
+        (ACTION_PAYMENT, "دفع"),
+        (ACTION_RESET, "إلغاء دفع"),
+        (ACTION_MARK_COMPLETED, "تعليم مكتمل"),
+        (ACTION_OTHER, "أخرى"),
+    ]
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    user = models.CharField(max_length=150, blank=True, verbose_name="المستخدم")
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="نوع الحركة")
+    model_name = models.CharField(max_length=50, verbose_name="النموذج")
+    object_id = models.PositiveIntegerField(null=True, blank=True, verbose_name="معرف الكائن")
+    object_repr = models.CharField(max_length=255, blank=True, verbose_name="وصف الكائن")
+    description = models.TextField(verbose_name="الوصف")
+    previous_value = models.JSONField(null=True, blank=True, verbose_name="القيمة السابقة")
+    new_value = models.JSONField(null=True, blank=True, verbose_name="القيمة الجديدة")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الحركة")
+
+    class Meta:
+        verbose_name = "سجل حركة"
+        verbose_name_plural = "سجل الحركات"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_action_display()} - {self.model_name} - {self.created_at}"
 
 
 

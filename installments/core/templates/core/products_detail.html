@@ -1,7 +1,15 @@
 {% extends 'core/base.html' %}
 {% block title %}تفاصيل المنتج{% endblock %}
 {% block content %}
-<h2 class="mb-3">{{ product.name }}</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">{{ product.name }}</h2>
+  <div>
+    <a class="btn btn-outline-primary" href="{% url 'core:product_edit' product.id %}">تعديل</a>
+    <form class="d-inline" method="post" action="{% url 'core:product_delete' product.id %}" onsubmit="return confirm('هل تريد حذف المنتج؟ العقود القديمة ستحتفظ باسم المنتج فقط.');">{% csrf_token %}<button class="btn btn-outline-danger">حذف</button></form>
+    <a class="btn btn-outline-secondary" href="{% url 'core:product_list' %}">رجوع للمنتجات</a>
+  </div>
+</div>
+
 <div class="row g-3 mb-3">
   <div class="col-md-4">
     {% if product.image %}
@@ -15,6 +23,8 @@
       <div class="card-body">
         <p>الماركة: {{ product.brand|default:'-' }}</p>
         <p>الفئة: {{ product.category|default:'-' }}</p>
+        <p>النوع: {{ product.product_type|default:'-' }}</p>
+        <p>الموديل: {{ product.model_name|default:'-' }}</p>
         <p class="money">السعر التقديري: {{ product.estimated_price|default:0|floatformat:2 }} جنيه</p>
         <div class="row g-2">
           <div class="col-md-4"><div class="border rounded p-2"><div class="text-muted small">مرات الشراء</div><strong>{{ purchase_count }}</strong></div></div>
@@ -25,41 +35,67 @@
     </div>
   </div>
 </div>
+
 <div class="card stat mb-3">
   <div class="card-body">
     <h5>العقود المرتبطة</h5>
     <div class="table-responsive">
       <table class="table">
-        <thead><tr><th>العقد</th><th>العميل</th><th>الإجمالي</th></tr></thead>
+        <thead><tr><th>العقد</th><th>العميل</th><th>سعر العميل</th><th>الحالة</th></tr></thead>
         <tbody>
           {% for contract in contracts %}
-            <tr><td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td><td>{{ contract.customer.name }}</td><td class="money">{{ contract.total_amount|floatformat:2 }} جنيه</td></tr>
+            <tr>
+              <td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td>
+              <td>{{ contract.customer.name }}</td>
+              <td class="money">{{ contract.customer_price|floatformat:2 }} جنيه</td>
+              <td>{{ contract.get_status_display }}</td>
+            </tr>
           {% empty %}
-            <tr><td colspan="3">لا توجد عقود.</td></tr>
+            <tr><td colspan="4">لا توجد عقود.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 </div>
+
 <div class="card stat">
   <div class="card-body">
-    <h5>تاريخ الشراء والأسعار</h5>
+    <h5>تاريخ الشراء والفواتير</h5>
     <div class="table-responsive">
-      <table class="table">
-        <thead><tr><th>#</th><th>التاجر</th><th>سعر الشراء</th><th>التاريخ</th><th>الصورة</th><th>ملاحظات</th></tr></thead>
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>العميل</th>
+            <th>العقد</th>
+            <th>التاجر</th>
+            <th>سعر الشراء</th>
+            <th>تاريخ الشراء</th>
+            <th>الفاتورة</th>
+            <th>ملاحظات</th>
+          </tr>
+        </thead>
         <tbody>
           {% for purchase in purchases %}
             <tr>
               <td>{{ forloop.counter }}</td>
-              <td>{{ purchase.supplier.name }}</td>
+              <td>{{ purchase.customer.name|default:'-' }}</td>
+              <td>{% if purchase.contract %}<a href="{% url 'core:contract_detail' purchase.contract.id %}">{{ purchase.contract.contract_number }}</a>{% else %}-{% endif %}</td>
+              <td>{{ purchase.supplier.name|default:'-' }}</td>
               <td class="money">{{ purchase.purchase_price|floatformat:2 }} جنيه</td>
               <td>{{ purchase.purchase_date }}</td>
-              <td>{% if purchase.image %}<img src="{{ purchase.image.url }}" class="image-thumb-sm js-fullscreen-image" data-fullscreen-src="{{ purchase.image.url }}" alt="{{ purchase.product_name }}">{% else %}-{% endif %}</td>
+              <td>
+                {% if purchase.image %}
+                  <img src="{{ purchase.image.url }}" class="image-thumb-sm js-fullscreen-image" data-fullscreen-src="{{ purchase.image.url }}" alt="{{ purchase.product_name }}">
+                {% else %}
+                  -
+                {% endif %}
+              </td>
               <td>{{ purchase.notes|default:'-' }}</td>
             </tr>
           {% empty %}
-            <tr><td colspan="6">لا توجد مشتريات مسجلة لهذا المنتج.</td></tr>
+            <tr><td colspan="8">لا توجد مشتريات مسجلة لهذا المنتج.</td></tr>
           {% endfor %}
         </tbody>
       </table>

@@ -41,23 +41,54 @@ class ProductCategoryAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+class ProductPurchaseInline(admin.TabularInline):
+    model = SupplierPurchase
+    extra = 0
+    fields = (
+        "customer",
+        "contract",
+        "supplier",
+        "purchase_price",
+        "purchase_date",
+        "image",
+        "notes",
+    )
+    readonly_fields = ("contract",)
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "brand", "category", "estimated_price", "created_at")
+    list_display = (
+        "name",
+        "brand",
+        "category",
+        "estimated_price",
+        "created_at",
+    )
     search_fields = ("name", "brand")
     list_filter = ("category", "brand", "created_at")
+    inlines = (ProductPurchaseInline,)
 
 
 @admin.register(SupplierPurchase)
 class SupplierPurchaseAdmin(admin.ModelAdmin):
     list_display = (
+        "customer",
+        "contract",
         "supplier",
         "product",
         "product_name",
         "purchase_price",
         "purchase_date",
     )
-    search_fields = ("supplier__name", "product__name", "product_name", "notes")
+    search_fields = (
+        "customer__name",
+        "contract__contract_number",
+        "supplier__name",
+        "product__name",
+        "product_name",
+        "notes",
+    )
     list_filter = ("supplier", "product", "purchase_date", "created_at")
 
 

@@ -1,7 +1,77 @@
 {% extends 'core/base.html' %}
 {% block title %}المنتجات{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>المنتجات</h2><a class="btn btn-primary" href="{% url 'core:product_create' %}">إضافة منتج</a></div>
-<form class="row g-2 mb-3"><div class="col-md-10"><input class="form-control" name="q" value="{{ query }}" placeholder="بحث بالاسم أو الماركة"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">بحث</button></div></form>
-<div class="row g-3">{% for product in products %}<div class="col-md-4"><div class="card stat h-100">{% if product.image %}<img src="{{ product.image.url }}" class="card-img-top image-thumb js-fullscreen-image" data-fullscreen-src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}<div class="card-body"><h5>{{ product.name }}</h5><p class="text-muted mb-1">{{ product.brand|default:'بدون ماركة' }} - {{ product.category|default:'بدون فئة' }}</p><p class="money">{{ product.estimated_price|default:0|floatformat:2 }} جنيه</p><a class="btn btn-sm btn-outline-primary" href="{% url 'core:product_detail' product.id %}">عرض</a></div></div></div>{% empty %}<div class="col-12"><div class="alert alert-info">لا توجد منتجات.</div></div>{% endfor %}</div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>المنتجات</h2>
+  <a class="btn btn-primary" href="{% url 'core:product_create' %}">إضافة منتج</a>
+</div>
+
+<form class="row g-2 mb-3">
+  <div class="col-md-3">
+    <input class="form-control" name="q" value="{{ query }}" placeholder="بحث بالاسم أو الماركة">
+  </div>
+  <div class="col-md-3">
+    <div class="input-group">
+      <select class="form-select" name="type">
+        <option value="">كل الأنواع</option>
+        {% for pt in product_types %}
+        <option value="{{ pt.id }}" {% if pt.id == selected_type %}selected{% endif %}>{{ pt.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-outline-success" type="button" data-bs-toggle="modal" data-bs-target="#addTypeModal" title="إضافة نوع جديد">+</button>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <input class="form-control" name="model" value="{{ model_query }}" placeholder="بحث بالموديل">
+  </div>
+  <div class="col-md-3">
+    <button class="btn btn-outline-primary w-100">بحث</button>
+  </div>
+</form>
+
+<div class="row g-3">
+  {% for product in products %}
+    <div class="col-md-4">
+      <div class="card stat h-100">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" class="card-img-top image-thumb js-fullscreen-image" data-fullscreen-src="{{ product.image.url }}" alt="{{ product.name }}">
+        {% endif %}
+        <div class="card-body">
+          <h5>{{ product.name }}</h5>
+          <p class="text-muted mb-1">
+            {{ product.brand|default:'بدون ماركة' }} - {{ product.category|default:'بدون فئة' }}
+            {% if product.product_type %} - {{ product.product_type.name }}{% endif %}
+          </p>
+          {% if product.model_name %}
+          <p class="text-info small mb-1">موديل: {{ product.model_name }}</p>
+          {% endif %}
+          <p class="money mb-1">السعر التقديري: {{ product.estimated_price|default:0|floatformat:2 }} جنيه</p>
+          <p class="small text-muted mb-3">تم شراؤه {{ product.purchases_count }} مرة{% if product.last_purchase_date %} | آخر شراء: {{ product.last_purchase_date|date:"Y-m-d" }}{% endif %}</p>
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'core:product_detail' product.id %}">عرض السجل</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:product_edit' product.id %}">تعديل</a>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12"><div class="alert alert-info">لا توجد منتجات.</div></div>
+  {% endfor %}
+</div>
+
+<div class="modal fade" id="addTypeModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <form method="post" action="{% url 'core:product_type_create' %}">
+        {% csrf_token %}
+        <div class="modal-header"><h5 class="modal-title">إضافة نوع جديد</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <input type="text" name="name" class="form-control" placeholder="اسم النوع" required>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-success" type="submit">إضافة</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

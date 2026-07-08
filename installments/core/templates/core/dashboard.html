@@ -1,29 +1,193 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}لوحة التحكم{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4"><h2>لوحة التحكم</h2><a class="btn btn-primary" href="{% url 'core:contract_create' %}">عقد جديد</a></div>
-<div class="row g-3 mb-4">
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">العقود النشطة</div><div class="h3">{{ active_contracts }}</div></div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">أقساط اليوم</div><div class="h3">{{ due_today_count }}</div></div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المتأخرات</div><div class="h3">{{ overdue_count }}</div></div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي الربح</div><div class="h3 money">{{ total_profit|floatformat:2 }} جنيه</div></div></div></div>
-  <div class="col-md-6"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي المستثمر</div><div class="h4 money">{{ total_invested|floatformat:2 }} جنيه</div></div></div></div>
-  <div class="col-md-6"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي المحصل</div><div class="h4 money">{{ total_collected|floatformat:2 }} جنيه</div></div></div></div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>لوحة التحكم</h2>
+  <a class="btn btn-primary" href="{% url 'core:contract_create' %}">+ عقد جديد</a>
 </div>
-<div class="row g-3 mb-4">
-  <div class="col-lg-8"><div class="card stat"><div class="card-body"><h5>التحصيل الشهري</h5><canvas id="paymentsChart" height="120"></canvas></div></div></div>
-  <div class="col-lg-4"><div class="card stat"><div class="card-body"><h5>حالات العقود</h5><canvas id="statusChart" height="180"></canvas></div></div></div>
-</div>
-<div class="row g-3">
-  <div class="col-lg-6"><div class="card stat"><div class="card-body"><h5>أحدث العقود</h5><div class="table-responsive"><table class="table"><thead><tr><th>رقم العقد</th><th>العميل</th><th>الإجمالي</th></tr></thead><tbody>{% for contract in recent_contracts %}<tr><td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td><td>{{ contract.customer.name }}</td><td class="money">{{ contract.total_amount|floatformat:2 }} جنيه</td></tr>{% empty %}<tr><td colspan="3">لا توجد عقود.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
-  <div class="col-lg-6"><div class="card stat"><div class="card-body"><h5>أحدث المدفوعات</h5><div class="table-responsive"><table class="table"><thead><tr><th>العقد</th><th>العميل</th><th>المدفوع</th></tr></thead><tbody>{% for item in recent_payments %}<tr><td>{{ item.contract.contract_number }}</td><td>{{ item.contract.customer.name }}</td><td class="money">{{ item.paid_amount|floatformat:2 }} جنيه</td></tr>{% empty %}<tr><td colspan="3">لا توجد مدفوعات.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
-</div>
-{% endblock %}
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-new Chart(document.getElementById('paymentsChart'), {type:'line', data:{labels:{{ chart_labels|safe }}, datasets:[{label:'المحصل', data:{{ chart_values|safe }}, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.15)', tension:.3, fill:true}]}});
-new Chart(document.getElementById('statusChart'), {type:'doughnut', data:{labels:{{ status_labels|safe }}, datasets:[{data:{{ status_values|safe }}, backgroundColor:['#16a34a','#2563eb','#dc2626','#6b7280']}]}});
-</script>
-{% endblock %}
 
+<!-- Row 0: Today's Tasks -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">أقساط اليوم (المتوقع: {{ total_expected_today|floatformat:2 }} جنيه)</h5>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>العميل</th><th>المبلغ</th><th></th></tr></thead>
+            <tbody>
+              {% for inst in due_today %}
+              <tr>
+                <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
+                <td class="money">{{ inst.amount|floatformat:2 }}</td>
+                <td>
+                  <a href="{% url 'core:installment_pay' inst.id %}" class="btn btn-sm btn-outline-success">دفع</a>
+                  <a href="{{ inst.whatsapp_url }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-whatsapp"></i></a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted">لا أقساط اليوم.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">المتأخرات (عدد: {{ overdue_count }})</h5>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>العميل</th><th>المبلغ</th><th></th></tr></thead>
+            <tbody>
+              {% for inst in overdue_installments %}
+              <tr>
+                <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
+                <td class="money">{{ inst.amount|floatformat:2 }}</td>
+                <td>
+                  <a href="{% url 'core:installment_pay' inst.id %}" class="btn btn-sm btn-outline-success">دفع</a>
+                  <a href="{{ inst.whatsapp_url }}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="bi bi-whatsapp"></i></a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted">لا توجد متأخرات.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-cash-stack fs-1 text-success opacity-75"></i>
+        <div><div class="text-muted small">دخل الشهر الحالي</div><div class="h4 mb-0 money">{{ income_this_month|floatformat:2 }} جنيه</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-file-earmark-plus fs-1 text-primary opacity-75"></i>
+        <div><div class="text-muted small">عقود جديدة هذا الشهر</div><div class="h4 mb-0">{{ new_contracts_count }}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-check2-circle fs-1 text-info opacity-75"></i>
+        <div><div class="text-muted small">عقود مكتملة هذا الشهر</div><div class="h4 mb-0">{{ completed_count }}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+          <i class="bi bi-calendar-week fs-1 text-warning opacity-75"></i>
+          <div><div class="text-muted small">الأقساط هذا الشهر</div><div class="h4 mb-0">{{ expected_this_month }}</div></div>
+        </div>
+        <div class="mt-2 d-flex gap-2 small flex-wrap">
+          {% if collected_this_month %}<span class="badge bg-success">تم تحصيل {{ collected_this_month }}</span>{% endif %}
+          {% if pending_this_month %}<span class="badge bg-warning text-dark">معلق {{ pending_this_month }}</span>{% endif %}
+          {% if overdue_this_month %}<span class="badge bg-danger">متأخر {{ overdue_this_month }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Financial Overview -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-pie-chart fs-1 text-secondary opacity-75"></i>
+        <div><div class="text-muted small">إجمالي المستثمر</div><div class="h5 mb-0 money">{{ total_invested|floatformat:2 }} جنيه</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-wallet2 fs-1 text-success opacity-75"></i>
+        <div><div class="text-muted small">إجمالي المحصل</div><div class="h5 mb-0 money">{{ total_collected|floatformat:2 }} جنيه</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-graph-up-arrow fs-1 text-primary opacity-75"></i>
+        <div><div class="text-muted small">إجمالي الربح</div><div class="h5 mb-0 money">{{ total_profit|floatformat:2 }} جنيه</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-building fs-1 text-info opacity-75"></i>
+        <div><div class="text-muted small">إجمالي العقود / العملاء</div><div class="h5 mb-0">{{ total_contracts }} عقد / {{ total_customers }} عميل</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 4: Recent Contracts & Payments -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-file-text ms-2"></i>أحدث العقود</h5>
+        <div class="table-responsive">
+          <table class="table table-borderless align-middle mb-0">
+            <thead class="table-light"><tr><th>رقم العقد</th><th>العميل</th><th>الإجمالي</th><th>الحالة</th></tr></thead>
+            <tbody>
+              {% for contract in recent_contracts %}
+              <tr>
+                <td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td>
+                <td>{{ contract.customer.name }}</td>
+                <td class="money">{{ contract.total_amount|floatformat:2 }}</td>
+                <td>{% if contract.status == 'active' %}<span class="badge bg-success">نشط</span>{% elif contract.status == 'completed' %}<span class="badge bg-primary">مكتمل</span>{% elif contract.status == 'overdue' %}<span class="badge bg-danger">متأخر</span>{% else %}<span class="badge bg-secondary">ملغي</span>{% endif %}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-muted text-center">لا توجد عقود.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card stat border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title"><i class="bi bi-credit-card ms-2"></i>أحدث المدفوعات</h5>
+        <div class="table-responsive">
+          <table class="table table-borderless align-middle mb-0">
+            <thead class="table-light"><tr><th>العقد</th><th>العميل</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+            <tbody>
+              {% for item in recent_payments %}
+              <tr>
+                <td>{{ item.contract.contract_number }}</td>
+                <td>{{ item.contract.customer.name }}</td>
+                <td class="money text-success">{{ item.paid_amount|floatformat:2 }} جنيه</td>
+                <td class="small">{{ item.paid_date|date:"Y-m-d" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-muted text-center">لا توجد مدفوعات.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+You are an expert Django developer.
+
+## Project Info
+- Framework: Django 5.2
+- Database: SQLite (dev) / MySQL (prod)
+- Frontend: Bootstrap 5 + HTML templates
+- Python: 3.11
+
+## Code Style
+- Use Django best practices (class-based views, model managers)
+- Write PEP 8 compliant Python code
+- Add docstrings to all models and views
+- Use type hints where practical
+
+## Models
+- Always add `created_at` and `updated_at` DateTimeFields
+- Use `class Meta` with proper ordering and verbose names
+- Add `__str__` to every model
+- Use `class Meta: indexes` for frequent queries
+
+## Views
+- Prefer class-based views (ListView, CreateView, etc.)
+- Use `@login_required` or `LoginRequiredMixin` for auth
+- Keep business logic in models/managers, not views
+
+## Templates
+- Use Bootstrap 5 classes for styling
+- Extend from `base.html` template
+- Use Django template tags, not raw HTML where possible
+
+## URLs
+- Use app_name in urls.py
+- Name all URL patterns with descriptive names
+
+## Forms
+- Use Django ModelForm where applicable
+- Add proper field validation
+- Use crispy forms for Bootstrap rendering
+
+## Security
+- Never expose SECRET_KEY or DEBUG=True in production
+- Always use Django ORM, never raw SQL
+- Validate all user input through forms
+- Use CSRF tokens on all POST forms
+- Use `@require_POST` or `LoginRequiredMixin` appropriately
+
+## Testing
+- Write tests for all views and models
+- Use Django TestCase
+- Test edge cases (empty results, invalid input)

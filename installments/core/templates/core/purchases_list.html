@@ -1,7 +1,0 @@
-{% extends 'core/base.html' %}
-{% block title %}المشتريات{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>المشتريات</h2><a class="btn btn-primary" href="{% url 'core:purchase_create' %}">إضافة شراء</a></div>
-<div class="card stat mb-3"><div class="card-body">إجمالي المشتريات: <span class="money fw-bold">{{ total|floatformat:2 }} جنيه</span></div></div>
-<div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>التاجر</th><th>المنتج</th><th>السعر</th><th>التاريخ</th><th>الصورة</th><th>ملاحظات</th></tr></thead><tbody>{% for purchase in purchases %}<tr><td>{{ purchase.supplier.name }}</td><td>{{ purchase.product_name }}</td><td class="money">{{ purchase.purchase_price|floatformat:2 }} جنيه</td><td>{{ purchase.purchase_date }}</td><td>{% if purchase.image %}<img src="{{ purchase.image.url }}" class="image-thumb-sm js-fullscreen-image" data-fullscreen-src="{{ purchase.image.url }}" alt="{{ purchase.product_name }}">{% else %}-{% endif %}</td><td>{{ purchase.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="6">لا توجد مشتريات.</td></tr>{% endfor %}</tbody></table></div></div>
-{% endblock %}

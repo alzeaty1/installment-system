@@ -1,0 +1,30 @@
+{% extends 'core/base.html' %}
+{% block title %}نتائج البحث عن: {{ query }}{% endblock %}
+{% block content %}
+<h2>نتائج البحث عن: "{{ query }}"</h2>
+<hr>
+
+<h4>العملاء</h4>
+{% if customers %}
+<div class="table-responsive mb-4">
+  <table class="table">
+    <thead><tr><th>الاسم</th><th>الهاتف</th></tr></thead>
+    <tbody>{% for c in customers %}<tr><td><a href="{% url 'core:customer_detail' c.id %}">{{ c.name }}</a></td><td>{{ c.phone }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">لم يتم العثور على عملاء.</p>
+{% endif %}
+
+<h4>العقود</h4>
+{% if contracts %}
+<div class="table-responsive">
+  <table class="table">
+    <thead><tr><th>رقم العقد</th><th>العميل</th><th>المنتج</th></tr></thead>
+    <tbody>{% for c in contracts %}<tr><td><a href="{% url 'core:contract_detail' c.id %}">{{ c.contract_number }}</a></td><td>{{ c.customer.name }}</td><td>{{ c.product_name }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-muted">لم يتم العثور على عقود.</p>
+{% endif %}
+{% endblock %}

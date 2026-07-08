@@ -1,0 +1,151 @@
+{% extends 'core/base.html' %}
+{% block title %}سجل الحركات المالية والادارية{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>سجل الحركات (الرقابة المالية)</h2>
+  <span class="badge bg-secondary p-2 fs-6">إجمالي الحركات: {{ total_logs }}</span>
+</div>
+
+<!-- Log Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-md-2">
+    <div class="card stat border-0 shadow-sm text-center">
+      <div class="card-body">
+        <div class="text-muted small">عمليات الدفع</div>
+        <div class="h4 mb-0 text-success">{{ count_payment }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card stat border-0 shadow-sm text-center">
+      <div class="card-body">
+        <div class="text-muted small">إلغاء دفع</div>
+        <div class="h4 mb-0 text-warning">{{ count_reset }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card stat border-0 shadow-sm text-center">
+      <div class="card-body">
+        <div class="text-muted small">عمليات الإضافة</div>
+        <div class="h4 mb-0 text-primary">{{ count_create }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card stat border-0 shadow-sm text-center">
+      <div class="card-body">
+        <div class="text-muted small">عمليات التعديل</div>
+        <div class="h4 mb-0 text-info">{{ count_update }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2">
+    <div class="card stat border-0 shadow-sm text-center">
+      <div class="card-body">
+        <div class="text-muted small">عمليات الحذف</div>
+        <div class="h4 mb-0 text-danger">{{ count_delete }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card stat border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-center">
+      <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">تصفية حسب نوع الحركة</label>
+        <select name="action" class="form-select" onchange="this.form.submit()">
+          <option value="">كل الحركات</option>
+          <option value="payment" {% if action_filter == 'payment' %}selected{% endif %}>دفع قسط</option>
+          <option value="reset" {% if action_filter == 'reset' %}selected{% endif %}>إلغاء دفع قسط</option>
+          <option value="create" {% if action_filter == 'create' %}selected{% endif %}>إضافة جديد</option>
+          <option value="update" {% if action_filter == 'update' %}selected{% endif %}>تعديل بيانات</option>
+          <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>حذف كائن</option>
+        </select>
+      </div>
+      {% if action_filter %}
+        <div class="col-md-2 pt-4">
+          <a href="{% url 'core:activity_log' %}" class="btn btn-outline-secondary w-100">إلغاء التصفية</a>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<!-- Logs Table -->
+<div class="card stat border-0 shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>التاريخ والوقت</th>
+            <th>المستخدم</th>
+            <th>العملية</th>
+            <th>الوصف</th>
+            <th>التفاصيل (قبل / بعد)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+            <tr>
+              <td class="small text-muted" style="white-space: nowrap;">{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+              <td>
+                <span class="badge bg-light text-dark border">{{ log.user|default:"نظام تلقائي" }}</span>
+              </td>
+              <td>
+                {% if log.action == 'payment' %}
+                  <span class="badge bg-success">دفع قسط</span>
+                {% elif log.action == 'reset' %}
+                  <span class="badge bg-warning text-dark">إلغاء دفع</span>
+                {% elif log.action == 'create' %}
+                  <span class="badge bg-primary">إضافة</span>
+                {% elif log.action == 'update' %}
+                  <span class="badge bg-info text-dark">تعديل</span>
+                {% elif log.action == 'delete' %}
+                  <span class="badge bg-danger">حذف</span>
+                {% elif log.action == 'mark_completed' %}
+                  <span class="badge bg-purple text-white" style="background-color: #6f42c1;">اكتمال عقد</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ log.get_action_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <strong>[{{ log.model_name }}]</strong> {{ log.description }}
+                {% if log.object_repr %}
+                  <br><small class="text-muted">الهدف: {{ log.object_repr }}</small>
+                {% endif %}
+              </td>
+              <td>
+                {% if log.previous_value or log.new_value %}
+                  <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#values-{{ log.id }}">
+                    عرض الحقول المتأثرة
+                  </button>
+                  <div class="collapse mt-2" id="values-{{ log.id }}">
+                    <div class="p-2 bg-light rounded text-start" style="font-family: monospace; font-size: 0.85rem; direction: ltr;">
+                      {% if log.previous_value %}
+                        <div class="text-danger"><strong>Before:</strong> {{ log.previous_value }}</div>
+                      {% endif %}
+                      {% if log.new_value %}
+                        <div class="text-success"><strong>After:</strong> {{ log.new_value }}</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% else %}
+                  <span class="text-muted small">-</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">لا توجد حركات مسجلة تطابق التصفية.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

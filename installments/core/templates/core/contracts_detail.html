@@ -1,8 +1,87 @@
 {% extends 'core/base.html' %}
 {% block title %}تفاصيل العقد{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>عقد {{ contract.contract_number }}</h2><div><a class="btn btn-outline-primary" href="{% url 'core:contract_edit' contract.id %}">تعديل</a><form class="d-inline" method="post" action="{% url 'core:contract_mark_completed' contract.id %}">{% csrf_token %}<button class="btn btn-success">تعليم كمكتمل</button></form></div></div>
-<div class="row g-3 mb-3"><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">العميل</div><a href="{% url 'core:customer_detail' contract.customer.id %}">{{ contract.customer.name }}</a></div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">التاجر</div>{% if contract.supplier %}<a href="{% url 'core:supplier_detail' contract.supplier.id %}">{{ contract.supplier.name }}</a>{% else %}<span class="text-muted">-</span>{% endif %}</div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي العقد</div><span class="money">{{ contract.total_amount|floatformat:2 }} جنيه</span></div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المدفوع</div><span class="money">{{ total_paid|floatformat:2 }} جنيه</span></div></div></div></div>
-<div class="card stat mb-3"><div class="card-body"><div class="row g-3"><div class="col-md-3">{% if contract.product and contract.product.image %}<img src="{{ contract.product.image.url }}" class="img-fluid rounded js-fullscreen-image" data-fullscreen-src="{{ contract.product.image.url }}" alt="{{ contract.product_name }}">{% else %}<div class="text-muted small">لا توجد صورة للمنتج.</div>{% endif %}</div><div class="col-md-3"><p>المنتج: {{ contract.product_name }}</p><p>سعر الشراء: <span class="money">{{ contract.actual_cost|floatformat:2 }} جنيه</span></p><p>السعر للعميل: <span class="money">{{ contract.customer_price|floatformat:2 }} جنيه</span></p></div><div class="col-md-3"><p>المقدم: <span class="money">{{ contract.down_payment|floatformat:2 }} جنيه</span></p><p>المتبقي: <span class="money">{{ contract.remaining_amount|floatformat:2 }} جنيه</span></p><p>الفائدة: <span class="money">{{ contract.total_interest|floatformat:2 }} جنيه</span></p></div><div class="col-md-3"><p>النسبة: {{ contract.interest_rate|floatformat:2 }}%</p><p>عدد الشهور: {{ contract.months_count }}</p><p>القسط: <span class="money">{{ contract.installment_amount|floatformat:2 }} جنيه</span></p></div></div><p class="mb-0 mt-3">ملاحظات: {{ contract.notes|default:'-' }}</p></div></div>
-<div class="card stat"><div class="card-body"><h5>جدول الأقساط</h5><div class="table-responsive"><table class="table"><thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>الحالة</th><th></th></tr></thead><tbody>{% for installment in installments %}<tr><td>{{ installment.installment_number }}</td><td>{{ installment.due_date }}</td><td class="money">{{ installment.amount|floatformat:2 }} جنيه</td><td class="money">{{ installment.paid_amount|floatformat:2 }} جنيه</td><td>{{ installment.get_status_display }}</td><td><a class="btn btn-sm btn-outline-success" href="{% url 'core:installment_pay' installment.id %}">دفع</a></td></tr>{% empty %}<tr><td colspan="6">لا توجد أقساط.</td></tr>{% endfor %}</tbody></table></div></div></div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>عقد {{ contract.contract_number }}</h2>
+  <div>
+    <a class="btn btn-outline-success" href="{% url 'core:contract_summary' contract.id %}"><i class="bi bi-file-text"></i> شيت العقد</a>
+    <a class="btn btn-outline-primary" href="{% url 'core:contract_edit' contract.id %}">تعديل</a>
+    <form class="d-inline" method="post" action="{% url 'core:contract_mark_completed' contract.id %}" onsubmit="return confirm('تعليم العقد كمكتمل سيجعل كل الأقساط غير المدفوعة مدفوعة. هل أنت متأكد؟');">{% csrf_token %}<button class="btn btn-success">تعليم كمكتمل</button></form>
+    <form class="d-inline" method="post" action="{% url 'core:contract_delete' contract.id %}" onsubmit="return confirm('حذف العقد سيحذف الأقساط المرتبطة به. هل أنت متأكد؟');">{% csrf_token %}<button class="btn btn-outline-danger">حذف</button></form>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">العميل</div><a href="{% url 'core:customer_detail' contract.customer.id %}">{{ contract.customer.name }}</a></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">التاجر</div>{% if contract.supplier %}<a href="{% url 'core:supplier_detail' contract.supplier.id %}">{{ contract.supplier.name }}</a>{% else %}<span class="text-muted">-</span>{% endif %}</div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي العقد</div><span class="money">{{ contract.total_amount|floatformat:2 }} جنيه</span></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المدفوع</div><span class="money">{{ total_paid|floatformat:2 }} جنيه</span></div></div></div>
+</div>
+
+<div class="card stat mb-3">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        {% if contract.product and contract.product.image %}
+          <img src="{{ contract.product.image.url }}" class="img-fluid rounded js-fullscreen-image" data-fullscreen-src="{{ contract.product.image.url }}" alt="{{ contract.product_name }}">
+        {% else %}
+          <div class="text-muted small">لا توجد صورة للمنتج.</div>
+        {% endif %}
+      </div>
+      <div class="col-md-3"><p>المنتج: {{ contract.product_name }}</p><p>سعر الشراء: <span class="money">{{ contract.actual_cost|floatformat:2 }} جنيه</span></p><p>السعر للعميل: <span class="money">{{ contract.customer_price|floatformat:2 }} جنيه</span></p></div>
+      <div class="col-md-3"><p>المقدم: <span class="money">{{ contract.down_payment|floatformat:2 }} جنيه</span></p><p>المتبقي: <span class="money">{{ contract.remaining_amount|floatformat:2 }} جنيه</span></p><p>الفائدة: <span class="money">{{ contract.total_interest|floatformat:2 }} جنيه</span></p></div>
+      <div class="col-md-3"><p>النسبة: {{ contract.interest_rate|floatformat:2 }}%</p><p>عدد الشهور: {{ contract.months_count }}</p><p>القسط: <span class="money">{{ contract.installment_amount|floatformat:2 }} جنيه</span></p></div>
+    </div>
+    <p class="mb-0 mt-3">ملاحظات: {{ contract.notes|default:'-' }}</p>
+  </div>
+</div>
+
+<div class="card stat">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0">جدول الأقساط</h5>
+      <div class="text-muted small">{{ paid_count }} / {{ total_count }} مدفوع</div>
+    </div>
+    <div class="progress bg-light mb-3" style="height: 20px; border-radius: 10px;">
+      <div class="progress-bar bg-success" style="width: {{ progress }}%;">{{ progress }}%</div>
+    </div>
+    <div class="table-responsive">
+      <table class="table">
+        <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>الحالة</th><th></th></tr></thead>
+        <tbody>
+          {% for installment in installments %}
+            <tr>
+              <td>{{ installment.installment_number }}</td>
+              <td>{{ installment.due_date }}</td>
+              <td class="money">{{ installment.amount|floatformat:2 }} جنيه</td>
+              <td class="money">{{ installment.paid_amount|floatformat:2 }} جنيه</td>
+              <td>{{ installment.get_status_display }}</td>
+              <td>
+                <div class="btn-group">
+                  <a class="btn btn-sm btn-outline-success" href="{% url 'core:installment_pay' installment.id %}">دفع</a>
+                  {% if installment.paid_amount > 0 %}
+                    <a class="btn btn-sm btn-outline-primary" href="{% url 'core:installment_receipt' installment.id %}"><i class="bi bi-printer"></i></a>
+                    <form class="d-inline" method="post" action="{% url 'core:installment_reset_payment' installment.id %}" onsubmit="return confirm('هل تريد إلغاء دفع هذا القسط؟');">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">إلغاء</button></form>
+                  {% endif %}
+                  <!-- WhatsApp Buttons -->
+                  <div class="btn-group">
+                    <a href="{{ installment.whatsapp_reminder }}" target="_blank" class="btn btn-sm btn-outline-info" title="تذكير"><i class="bi bi-whatsapp"></i> ت</a>
+                    {% if installment.status == 'late' %}
+                      <a href="{{ installment.whatsapp_overdue }}" target="_blank" class="btn btn-sm btn-outline-danger" title="تأخير"><i class="bi bi-whatsapp"></i> تأ</a>
+                    {% endif %}
+                    {% if installment.paid_amount > 0 %}
+                      <a href="{{ installment.whatsapp_payment }}" target="_blank" class="btn btn-sm btn-outline-success" title="تأكيد دفع"><i class="bi bi-whatsapp"></i> د</a>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6">لا توجد أقساط.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {% endblock %}

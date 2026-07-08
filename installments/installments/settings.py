@@ -40,6 +40,27 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-local-dev-key-
 DEBUG = env_bool('DJANGO_DEBUG', True)
 
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', ['localhost', '127.0.0.1'])
+# Auto-add the local machine's IP address so devices on the same network can access
+# the application when running with --host=0.0.0.0 (used in StartServer.bat).
+if '*' not in ALLOWED_HOSTS:
+    try:
+        import socket
+        hostname = socket.gethostname()
+        local_ips = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, None)}
+        for ip in local_ips:
+            if ip and ip not in ALLOWED_HOSTS:
+                ALLOWED_HOSTS.append(ip)
+    except Exception:
+        pass
+
+# Authentication redirects for the simple local-network login
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# Keep user logged in for 30 days locally so they don't have to re-login constantly.
+SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
+SESSION_SAVE_EVERY_REQUEST = True
 
 
 # Application definition
@@ -61,10 +82,12 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.LoginRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-        'core.middleware.AutoBackupMiddleware',
-    ]
+    'core.middleware.AutoBackupMiddleware',
+    'core.middleware.AccountMiddleware',
+]
 
 ROOT_URLCONF = 'installments.urls'
 
@@ -78,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.accounts_processor',
             ],
         },
     },

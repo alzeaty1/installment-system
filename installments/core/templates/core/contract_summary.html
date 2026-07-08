@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}شيت العقد {{ contract.contract_number }}{% endblock %}
+{% block extra_head %}
+<style>
+  @media print {
+    body * { visibility: hidden; }
+    #summary-area, #summary-area * { visibility: visible; }
+    #summary-area { position: absolute; left: 0; top: 0; width: 100%; }
+    .no-print { display: none !important; }
+  }
+  .summary-card { max-width: 750px; margin: 0 auto; }
+  .progress { height: 24px; border-radius: 12px; }
+  .table-installments td, .table-installments th { padding: 0.5rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="no-print d-flex justify-content-between align-items-center mb-4">
+  <h2>شيت العقد {{ contract.contract_number }}</h2>
+  <div>
+    <button onclick="window.print()" class="btn btn-success"><i class="bi bi-printer"></i> طباعة</button>
+    <a href="{{ whatsapp_url }}" target="_blank" class="btn btn-success" style="background-color: #25D366; border-color: #25D366;"><i class="bi bi-whatsapp"></i> مشاركة واتساب</a>
+    <a href="{% url 'core:contract_detail' contract.id %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-right"></i> العقد</a>
+  </div>
+</div>
+
+<div id="summary-area" class="summary-card">
+  <div class="card stat border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="text-center mb-4">
+        <h4 class="fw-bold text-primary">{{ contract.customer.name }}</h4>
+        <p class="text-muted mb-0">عقد {{ contract.contract_number }}</p>
+      </div>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4"><div class="text-muted small">المنتج</div><div class="fw-bold">{{ contract.product_name }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">سعر المنتج</div><div class="fw-bold money">{{ contract.customer_price|floatformat:2 }} جنيه</div></div>
+        {% if contract.down_payment %}<div class="col-6 col-md-4"><div class="text-muted small">المقدم</div><div class="fw-bold money">{{ contract.down_payment|floatformat:2 }} جنيه</div></div>{% endif %}
+        <div class="col-6 col-md-4"><div class="text-muted small">النسبة</div><div class="fw-bold">{{ contract.interest_rate|floatformat:1 }}%</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">الإجمالي</div><div class="fw-bold money text-success">{{ contract.total_amount|floatformat:2 }} جنيه</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">القسط الشهري</div><div class="fw-bold money">{{ contract.installment_amount|floatformat:2 }} جنيه</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">عدد الأقساط</div><div class="fw-bold">{{ contract.months_count }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">المدفوع</div><div class="fw-bold money text-success">{{ total_paid|floatformat:2 }} جنيه</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">الباقي</div><div class="fw-bold money text-danger">{{ total_remaining|floatformat:2 }}</div></div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="mb-4">
+        <div class="d-flex justify-content-between small mb-1"><span>التقدم</span><span>{{ paid_count }} / {{ total_count }}</span></div>
+        <div class="progress bg-light"><div class="progress-bar bg-success" style="width: {{ progress }}%;">{{ progress }}%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Installments Table -->
+  <div class="card stat border-0 shadow-sm">
+    <div class="card-body">
+      <h5>جدول الأقساط</h5>
+      <div class="table-responsive">
+        <table class="table table-hover table-installments">
+          <thead><tr><th>#</th><th>الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th></tr></thead>
+          <tbody>
+            {% for row in schedule_rows %}
+            <tr>
+              <td>{{ row.inst.installment_number }}</td>
+              <td>{{ row.inst.due_date|date:"Y-m-d" }}</td>
+              <td class="money">{{ row.inst.amount|floatformat:2 }}</td>
+              <td class="money">{{ row.inst.paid_amount|floatformat:2 }}</td>
+              <td class="money">{{ row.inst.amount|floatformat:2 }}</td>
+              <td>
+                {% if row.inst.status == 'paid' %}<span class="badge bg-success">تم</span>
+                {% elif row.inst.status == 'late' %}<span class="badge bg-danger">متأخر</span>
+                {% elif row.inst.status == 'partial' %}<span class="badge bg-warning text-dark">جزئي</span>
+                {% else %}<span class="badge bg-secondary">قادم</span>{% endif %}
+              </td>
+            </tr>
+            {% empty %}<tr><td colspan="6" class="text-muted text-center">لا توجد أقساط.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

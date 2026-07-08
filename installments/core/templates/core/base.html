@@ -27,9 +27,21 @@
     body.theme-dark .form-control:focus, body.theme-dark .form-select:focus { background:#0f172a; color:#fff; border-color:#60a5fa; box-shadow:0 0 0 .2rem rgba(96,165,250,.18); }
     body.theme-dark .form-control::placeholder { color:#94a3b8; }
     body.theme-dark .text-muted { color:#94a3b8 !important; }
+    body.theme-dark .text-secondary { color:#cbd5e1 !important; }
+    body.theme-dark .text-dark { color:#e5e7eb !important; }
+    body.theme-dark a:not(.btn):not(.sidebar a) { color:#93c5fd; }
+    body.theme-dark a:not(.btn):not(.sidebar a):hover { color:#bfdbfe; }
+    body.theme-dark .table-light { --bs-table-bg:#111827; --bs-table-color:#e5e7eb; --bs-table-border-color:#334155; }
     body.theme-dark .alert-light { background:#111827; color:#e5e7eb; border-color:#334155; }
+    body.theme-dark .alert-info { background:#082f49; color:#e0f2fe; border-color:#075985; }
+    body.theme-dark .alert-danger { background:#450a0a; color:#fee2e2; border-color:#991b1b; }
     body.theme-dark .border { border-color:#334155 !important; }
     body.theme-dark .bg-white { background:#111827 !important; color:#e5e7eb; }
+    body.theme-dark .btn-outline-dark { color:#e5e7eb; border-color:#64748b; }
+    body.theme-dark .btn-outline-dark:hover { color:#020617; background:#e5e7eb; border-color:#e5e7eb; }
+    body.theme-dark .btn-outline-secondary { color:#cbd5e1; border-color:#64748b; }
+    body.theme-dark .btn-outline-secondary:hover { color:#020617; background:#cbd5e1; border-color:#cbd5e1; }
+    body.theme-dark .form-label, body.theme-dark .form-check-label { color:#e5e7eb; }
     body.theme-dark .modal-content { background:#020617; color:#e5e7eb; }
     .theme-toggle { width:38px; height:38px; border:1px solid rgba(255,255,255,.18); color:#fff; background:#1f2937; border-radius:.5rem; display:inline-flex; align-items:center; justify-content:center; }
     .table th { white-space:nowrap; }
@@ -61,14 +73,20 @@
 </head>
 <body>
 <div class="mobile-topbar align-items-center justify-content-between p-2 bg-white border-bottom sticky-top">
-  <button class="btn btn-outline-dark" type="button" data-sidebar-toggle>القائمة</button><button class="btn btn-outline-dark" type="button" title="Dark mode" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
-  <strong>نظام التقسيط</strong>
+  <button class="btn btn-outline-dark" type="button" data-sidebar-toggle>القائمة</button>
+  <form class="d-flex" action="{% url 'core:search' %}" method="get">
+    <input class="form-control form-control-sm me-2" type="search" placeholder="بحث..." name="q" value="{{ query }}">
+  </form>
+  <button class="btn btn-outline-dark" type="button" title="Dark mode" data-theme-toggle><i class="bi bi-moon-stars"></i></button>
 </div>
 <div class="sidebar-backdrop" data-sidebar-close></div>
 <div class="layout d-lg-flex">
   <aside class="sidebar p-3" id="appSidebar">
-    <div class="sidebar-header d-flex align-items-center justify-content-between gap-2 mb-4">
-      <h1 class="sidebar-title h4 mb-0">نظام التقسيط</h1>
+    <div class="sidebar-header mb-3">
+      <h1 class="sidebar-title h4 mb-3">نظام التقسيط</h1>
+      <form class="d-flex mb-3" action="{% url 'core:search' %}" method="get">
+        <input class="form-control form-control-sm" type="search" placeholder="بحث..." name="q" value="{{ query }}">
+      </form>
       <div class="d-flex gap-2"><button class="theme-toggle" type="button" aria-label="Dark mode" title="Dark mode" data-theme-toggle><i class="bi bi-moon-stars"></i></button><button class="sidebar-toggle" type="button" aria-label="تصغير القائمة" title="تصغير/فتح القائمة" data-sidebar-toggle>‹</button></div>
     </div>
     <nav class="d-grid gap-1">
@@ -76,13 +94,18 @@
       <a href="{% url 'core:customer_list' %}" title="العملاء"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-label">العملاء</span></a>
       <a href="{% url 'core:supplier_list' %}" title="التجار"><span class="nav-icon"><i class="bi bi-shop"></i></span><span class="nav-label">التجار</span></a>
       <a href="{% url 'core:product_list' %}" title="المنتجات"><span class="nav-icon"><i class="bi bi-box-seam"></i></span><span class="nav-label">المنتجات</span></a>
-      <a href="{% url 'core:purchase_list' %}" title="المشتريات"><span class="nav-icon"><i class="bi bi-bag-check"></i></span><span class="nav-label">المشتريات</span></a>
       <a href="{% url 'core:contract_list' %}" title="العقود"><span class="nav-icon"><i class="bi bi-file-earmark-text"></i></span><span class="nav-label">العقود</span></a>
       <a href="{% url 'core:installment_list' %}" title="الأقساط"><span class="nav-icon"><i class="bi bi-calendar-check"></i></span><span class="nav-label">الأقساط</span></a>
       <a href="{% url 'core:reports_dashboard' %}" title="التقارير"><span class="nav-icon"><i class="bi bi-bar-chart"></i></span><span class="nav-label">التقارير</span></a>
       <a href="{% url 'core:notification_list' %}" title="التنبيهات"><span class="nav-icon"><i class="bi bi-bell"></i></span><span class="nav-label">التنبيهات</span></a>
       <a href="{% url 'core:expense_list' %}" title="المصروفات"><span class="nav-icon"><i class="bi bi-cash-stack"></i></span><span class="nav-label">المصروفات</span></a>
+      <a href="{% url 'core:activity_log' %}" title="سجل الحركات"><span class="nav-icon"><i class="bi bi-journal-text"></i></span><span class="nav-label">سجل الحركات</span></a>
       <a href="{% url 'core:settings' %}" title="الإعدادات"><span class="nav-icon"><i class="bi bi-gear"></i></span><span class="nav-label">الإعدادات</span></a>
+      <hr class="border-secondary my-2">
+      <span class="text-info small d-block px-2"><i class="bi bi-building"></i> <span class="nav-label">{% if current_account %}{{ current_account.name }}{% else %}الحساب الرئيسي{% endif %}</span></span>
+      <hr class="border-secondary my-2">
+      <span class="text-secondary small d-block px-2">مرحباً، {{ user.username }}</span>
+      <a href="{% url 'core:logout' %}" title="تسجيل الخروج"><span class="nav-icon"><i class="bi bi-box-arrow-right"></i></span><span class="nav-label">تسجيل الخروج</span></a>
     </nav>
   </aside>
   <main class="flex-grow-1 p-3 p-lg-4">
