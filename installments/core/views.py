@@ -25,6 +25,7 @@ from .models import (
     Notification,
     Product,
     ProductType,
+    Receiver,
     Settings,
     Supplier,
     SupplierPurchase,
@@ -1259,10 +1260,25 @@ def installment_pay(request, id):
     previous_paid = installment.paid_amount
     initial = {"paid_amount": installment.amount - installment.paid_amount, "paid_date": _today(), "payment_method": Installment.PAYMENT_CASH}
     form = InstallmentPaymentForm(request.POST or None, instance=installment, initial=initial)
+    
+    # Receivers for combobox
+    receivers = Receiver.objects.filter(account=request.current_account, is_active=True)
+    last_receiver_id = request.session.get("last_receiver_id")
+    
     if request.method == "POST" and form.is_valid():
         payment_amount = form.cleaned_data["paid_amount"]
         installment = form.save(commit=False)
         installment.paid_amount = previous_paid + payment_amount
+        
+        # Save receiver
+        receiver_id = request.POST.get("receiver")
+        if receiver_id:
+            try:
+                installment.receiver_id = int(receiver_id)
+                request.session["last_receiver_id"] = int(receiver_id)
+            except (ValueError, TypeError):
+                pass
+        
         if installment.paid_amount > installment.amount:
             installment.status = Installment.STATUS_OVERPAID
         elif installment.paid_amount >= installment.amount:
@@ -1288,7 +1304,12 @@ def installment_pay(request, id):
 
         messages.success(request, "تم تسجيل الدفع. يمكنك طباعة الإيصال أدناه.")
         return redirect("core:installment_receipt", id=installment.id)
-    return render(request, "core/installments_pay.html", {"form": form, "installment": installment})
+    return render(request, "core/installments_pay.html", {
+        "form": form,
+        "installment": installment,
+        "receivers": receivers,
+        "last_receiver_id": last_receiver_id,
+    })
 
 
 def installment_receipt(request, id):
@@ -1702,6 +1723,43 @@ def activity_log_list(request):
         "count_reset": counts_map.get(ActivityLog.ACTION_RESET, 0),
     }
     return render(request, "core/activity_log.html", context)
+
+
+def receiver_list(request):
+    receivers = Receiver.objects.filter(
+        account=request.current_account
+    ).annotate(
+        total_received=Sum("installments__paid_amount"),
+        payment_count=Count("installments"),
+    ).order_by("-total_received")
+    return render(request, "core/receivers/receiver_list.html", {"receivers": receivers})
+
+
+def receiver_detail(request, pk):
+    receiver = get_object_or_404(Receiver, pk=pk, account=request.current_account)
+    installments = receiver.installments.select_related(
+        "contract", "contract__customer"
+    ).order_by("-paid_date", "-due_date")
+    total = installments.aggregate(t=Sum("paid_amount"))["t"] or 0
+    return render(request, "core/receivers/receiver_detail.html", {
+        "receiver": receiver,
+        "installments": installments,
+        "total": total,
+    })
+
+
+def receiver_create(request):
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        if name:
+            Receiver.objects.get_or_create(
+                account=request.current_account,
+                name=name,
+            )
+            messages.success(request, f"تم إضافة المستلم {name}")
+        else:
+            messages.error(request, "يرجى إدخال اسم المستلم")
+    return redirect("core:receiver_list")
 
 
 

@@ -454,6 +454,12 @@ class Installment(models.Model):
     transfer_sender_name = models.CharField(max_length=255, blank=True, verbose_name="اسم المرسل")
     transfer_image = models.ImageField(upload_to="transfers/", blank=True, verbose_name="صورة التحويل")
     received_by = models.CharField(max_length=255, blank=True, verbose_name="المستلم (كاش)")
+    receiver = models.ForeignKey(
+        "Receiver", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="installments",
+        verbose_name="المستلم",
+    )
     notes = models.TextField(blank=True, verbose_name="ملاحظات")
 
     class Meta:
@@ -599,6 +605,25 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} - {self.model_name} - {self.created_at}"
+
+
+class Receiver(models.Model):
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE,
+        related_name="receivers", verbose_name="الحساب"
+    )
+    name = models.CharField(max_length=100, verbose_name="الاسم")
+    is_active = models.BooleanField(default=True, verbose_name="نشط")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإضافة")
+
+    class Meta:
+        unique_together = ("account", "name")
+        ordering = ["name"]
+        verbose_name = "مستلم"
+        verbose_name_plural = "المستلمون"
+
+    def __str__(self):
+        return self.name
 
 
 

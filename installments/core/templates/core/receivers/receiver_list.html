@@ -1,0 +1,47 @@
+{% extends 'core/base.html' %}
+{% block title %}المستلمون{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">👥 المستلمون</h2>
+</div>
+
+{% if receivers %}
+<div class="row row-cols-1 row-cols-md-2 g-3">
+  {% for r in receivers %}
+  <div class="col">
+    <div class="card stat h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h5 class="card-title mb-1">🧑 {{ r.name }}</h5>
+            <p class="text-muted small mb-0">
+              إجمالي الاستلام: <strong class="money">{{ r.total_received|default:"0"|floatformat:2 }} جنيه</strong>
+            </p>
+            <p class="text-muted small mb-2">
+              عدد الدفعات: {{ r.payment_count|default:"0" }} دفعة
+              {% if not r.is_active %}<span class="badge bg-warning text-dark">غير نشط</span>{% endif %}
+            </p>
+          </div>
+          <a href="{% url 'core:receiver_detail' r.id %}" class="btn btn-outline-primary btn-sm">عرض التفاصيل</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">لا يوجد مستلمون بعد.</div>
+{% endif %}
+
+<hr class="my-4">
+<h5>إضافة مستلم جديد</h5>
+<form method="POST" action="{% url 'core:receiver_create' %}" class="row g-2">
+  {% csrf_token %}
+  <div class="col-auto flex-grow-1">
+    <input type="text" name="name" class="form-control" placeholder="اسم المستلم الجديد" required>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-success">إضافة</button>
+  </div>
+</form>
+{% endblock %}

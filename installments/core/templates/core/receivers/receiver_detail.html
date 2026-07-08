@@ -1,0 +1,50 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ receiver.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2 class="mb-0">🧑 {{ receiver.name }}</h2>
+    <p class="text-muted mb-0">
+      إجمالي الاستلام: <strong class="money">{{ total|floatformat:2 }} جنيه</strong>
+      &nbsp;|&nbsp; عدد الدفعات: {{ installments|length }} دفعة
+      {% if not receiver.is_active %}<span class="badge bg-warning text-dark">غير نشط</span>{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'core:receiver_list' %}" class="btn btn-outline-secondary">🔙 رجوع</a>
+</div>
+
+{% if installments %}
+<div class="table-responsive">
+  <table class="table table-bordered table-hover">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>التاريخ</th>
+        <th>العميل</th>
+        <th>العقد</th>
+        <th>طريقة الدفع</th>
+        <th>المبلغ</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inst in installments %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>{{ inst.paid_date|date:"Y-m-d"|default:inst.due_date|date:"Y-m-d" }}</td>
+        <td>{{ inst.contract.customer.name }}</td>
+        <td>
+          <a href="{% url 'core:contract_detail' inst.contract.id %}">
+            {{ inst.contract.contract_number }}
+          </a>
+        </td>
+        <td>{{ inst.get_payment_method_display }}</td>
+        <td class="money">{{ inst.paid_amount|floatformat:2 }} جنيه</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">لا توجد دفعات لهذا المستلم بعد.</div>
+{% endif %}
+{% endblock %}

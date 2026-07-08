@@ -129,4 +129,7 @@ urlpatterns = [
         views.backup_restore_view,
         name="backup_restore",
     ),
+    path("receivers/", views.receiver_list, name="receiver_list"),
+    path("receivers/create/", views.receiver_create, name="receiver_create"),
+    path("receivers/<int:pk>/", views.receiver_detail, name="receiver_detail"),
 ]

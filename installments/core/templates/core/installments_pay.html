@@ -1,5 +1,9 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}تسجيل دفع{% endblock %}
+{% block extra_head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
 {% block content %}
 <h2 class="mb-3">تسجيل دفع</h2>
 <div class="card stat mb-3"><div class="card-body"><p>العقد: <a href="{% url 'core:contract_detail' installment.contract.id %}">{{ installment.contract.contract_number }}</a></p><p>العميل: {{ installment.contract.customer.name }}</p><p class="mb-0">المستحق: <span class="money">{{ installment.amount|floatformat:2 }} جنيه</span></p></div></div>
@@ -14,12 +18,27 @@
                 {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
         {% endfor %}
+        
+        <!-- Receiver Select2 Combobox -->
+        <div class="mb-3" id="field_receiver">
+            <label class="form-label" for="receiver-select">المستلم</label>
+            <select id="receiver-select" name="receiver" class="form-select" style="width:100%">
+                <option value="">-- اختر مستلم --</option>
+                {% for r in receivers %}
+                    <option value="{{ r.id }}" {% if r.id|stringformat:"s" == last_receiver_id|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
         <button class="btn btn-success">تسجيل الدفع</button> 
         <a class="btn btn-outline-secondary" href="{% url 'core:contract_detail' installment.contract.id %}">رجوع</a>
     </form>
 </div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
 <script>
+// Payment method toggle (existing)
 document.getElementById('id_payment_method').addEventListener('change', function() {
     const method = this.value;
     document.getElementById('field_transfer_sender_account').classList.add('d-none');
@@ -37,6 +56,33 @@ document.getElementById('id_payment_method').addEventListener('change', function
 });
 // Trigger on load
 document.getElementById('id_payment_method').dispatchEvent(new Event('change'));
+
+// Receiver Select2
+$(document).ready(function () {
+    var $sel = $('#receiver-select');
+    
+    // Init Select2
+    $sel.select2({
+        placeholder: 'اختر أو اكتب اسم المستلم',
+        allowClear: true,
+        dir: 'rtl',
+    });
+
+    // Restore last selected receiver from localStorage
+    var lastReceiver = localStorage.getItem('last_receiver_id');
+    if (lastReceiver && !$sel.val()) {
+        if ($sel.find('option[value="' + lastReceiver + '"]').length) {
+            $sel.val(lastReceiver).trigger('change');
+        }
+    }
+
+    // Save selection on change
+    $sel.on('change', function () {
+        var val = $(this).val();
+        if (val) {
+            localStorage.setItem('last_receiver_id', val);
+        }
+    });
+});
 </script>
 {% endblock %}
-
