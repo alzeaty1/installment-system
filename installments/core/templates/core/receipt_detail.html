@@ -106,6 +106,22 @@
           <td><span class="fw-bold text-success fs-4">{{ installment.paid_amount|floatformat:2 }}</span> <span class="fs-6">جنيه</span></td>
         </tr>
         <tr>
+          <td class="text-muted">المبلغ المتوقع:</td>
+          <td><span class="fw-bold">{{ expected_amount|floatformat:2 }}</span> <span class="fs-6">جنيه</span></td>
+        </tr>
+        <tr>
+          <td class="text-muted">الفرق:</td>
+          <td>
+            {% if difference < 0 %}
+              <span class="fw-bold text-danger">نقص {{ difference|floatformat:2 }} جنيه</span>
+            {% elif difference > 0 %}
+              <span class="fw-bold text-primary">زيادة {{ difference|floatformat:2 }} جنيه</span>
+            {% else %}
+              <span class="fw-bold text-success">مدفوع بالكامل</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
           <td class="text-muted">تاريخ الدفع:</td>
           <td>{{ installment.paid_date|date:"Y-m-d" }}</td>
         </tr>

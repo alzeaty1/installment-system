@@ -1,7 +1,9 @@
-﻿from decimal import Decimal
+﻿import calendar
+from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Sum
 
 
 MAX_MONEY_AMOUNT = Decimal("100000.00")
@@ -10,6 +12,15 @@ MONEY_VALIDATORS = [
     MaxValueValidator(MAX_MONEY_AMOUNT),
 ]
 DAY_OF_MONTH_VALIDATORS = [MinValueValidator(1), MaxValueValidator(31)]
+
+
+def _add_months(source_date, months, due_day=1):
+    """Add months to a date, clamping the day to the last day of the target month."""
+    month_index = source_date.month - 1 + months
+    year = source_date.year + month_index // 12
+    month = month_index % 12 + 1
+    last_day = calendar.monthrange(year, month)[1]
+    return source_date.replace(year=year, month=month, day=min(int(due_day), last_day))
 
 
 class Account(models.Model):
@@ -296,6 +307,7 @@ class Contract(models.Model):
         verbose_name="نوع الحساب",
     )
     start_date = models.DateField(verbose_name="تاريخ البداية")
+    end_date = models.DateField(null=True, blank=True, verbose_name="تاريخ نهاية العقد")
     payment_due_day = models.IntegerField(
         default=1,
         validators=DAY_OF_MONTH_VALIDATORS,
@@ -334,10 +346,40 @@ class Contract(models.Model):
             ).exists():
                 next_id += 1
                 self.contract_number = f"CON-{next_id:06d}"
+        if not self.end_date and self.start_date and self.months_count:
+            self.end_date = _add_months(self.start_date, self.months_count, self.payment_due_day)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.contract_number
+
+    @property
+    def total_paid(self):
+        """Sum of all installment paid_amount for this contract."""
+        return self.installments.aggregate(
+            s=Sum("paid_amount", default=Decimal("0.00"))
+        )["s"]
+
+    @property
+    def remaining_balance(self):
+        """Total amount still owed on this contract."""
+        return self.total_amount - self.total_paid
+
+    @property
+    def is_complete(self):
+        """True when total paid covers total amount."""
+        return self.total_paid >= self.total_amount
+
+    @property
+    def is_on_track(self):
+        """True if total paid >= sum of base amounts of all due installments."""
+        from datetime import date
+        expected = self.installments.filter(
+            due_date__lte=date.today()
+        ).aggregate(
+            s=Sum("amount", default=Decimal("0.00"))
+        )["s"]
+        return self.total_paid >= expected
 
 
 class Installment(models.Model):
@@ -346,12 +388,14 @@ class Installment(models.Model):
     STATUS_PAID = "paid"
     STATUS_LATE = "late"
     STATUS_PARTIAL = "partial"
+    STATUS_OVERPAID = "overpaid"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "معلق"),
         (STATUS_PAID, "مدفوع"),
         (STATUS_LATE, "متأخر"),
         (STATUS_PARTIAL, "جزئي"),
+        (STATUS_OVERPAID, "زيادة"),
     ]
 
     PAYMENT_CASH = "cash"

@@ -1099,12 +1099,11 @@ def contract_summary(request, id):
         expected = inst.amount + carried
         paid_now = inst.paid_amount
         carried = expected - paid_now
-        if carried < 0:
-            carried = Decimal("0.00")
         schedule_rows.append({
             "inst": inst,
             "expected": expected,
-            "carried": carried if inst.status == Installment.STATUS_PENDING else Decimal("0.00"),
+            "carried": carried,
+            "remaining": max(inst.amount - inst.paid_amount, Decimal("0.00")),
         })
     
     context = {
@@ -1262,7 +1261,9 @@ def installment_pay(request, id):
         payment_amount = form.cleaned_data["paid_amount"]
         installment = form.save(commit=False)
         installment.paid_amount = previous_paid + payment_amount
-        if installment.paid_amount >= installment.amount:
+        if installment.paid_amount > installment.amount:
+            installment.status = Installment.STATUS_OVERPAID
+        elif installment.paid_amount >= installment.amount:
             installment.status = Installment.STATUS_PAID
         elif installment.paid_amount > 0:
             installment.status = Installment.STATUS_PARTIAL
@@ -1315,9 +1316,13 @@ def installment_receipt(request, id):
     
     carryover = previous_paid - previous_expected
     overpaid = max(installment.paid_amount - installment.amount, Decimal("0"))
-    
+    expected_amount = installment.amount
+    difference = installment.paid_amount - installment.amount
+
     context = {
         "installment": installment,
+        "expected_amount": expected_amount,
+        "difference": difference,
         "remaining_balance": remaining_balance,
         "business_name": business_name,
         "due_month": due_month,

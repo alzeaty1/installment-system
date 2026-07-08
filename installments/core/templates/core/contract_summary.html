@@ -65,9 +65,10 @@
               <td>{{ row.inst.due_date|date:"Y-m-d" }}</td>
               <td class="money">{{ row.inst.amount|floatformat:2 }}</td>
               <td class="money">{{ row.inst.paid_amount|floatformat:2 }}</td>
-              <td class="money">{{ row.inst.amount|floatformat:2 }}</td>
+              <td class="money">{{ row.remaining|floatformat:2 }}</td>
               <td>
                 {% if row.inst.status == 'paid' %}<span class="badge bg-success">تم</span>
+                {% elif row.inst.status == 'overpaid' %}<span class="badge bg-info">زيادة</span>
                 {% elif row.inst.status == 'late' %}<span class="badge bg-danger">متأخر</span>
                 {% elif row.inst.status == 'partial' %}<span class="badge bg-warning text-dark">جزئي</span>
                 {% else %}<span class="badge bg-secondary">قادم</span>{% endif %}
