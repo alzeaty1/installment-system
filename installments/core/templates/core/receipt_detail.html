@@ -79,6 +79,12 @@
           <td class="text-muted">الشهر المستحق عنه:</td>
           <td>{{ due_month }}</td>
         </tr>
+        {% if overpaid and overpaid != 0 %}
+        <tr>
+          <td class="text-muted">زيادة الدفعة (مرحّل للقادم):</td>
+          <td class="fw-bold text-success">+{{ overpaid|floatformat:2 }} جنيه</td>
+        </tr>
+        {% endif %}
         {% if carryover and carryover != 0 %}
         <tr>
           <td class="text-muted">مرحّل من السابق:</td>

@@ -78,7 +78,7 @@ class InstallmentAccountingTests(TestCase):
         total = _remaining_installments_total(Installment.objects.filter(contract=self.contract))
         self.assertEqual(total, Decimal("1600"))
 
-    def test_payment_form_rejects_more_than_remaining_amount(self):
+    def test_payment_form_accepts_overpayment(self):
         installment = Installment.objects.create(
             contract=self.contract,
             installment_number=1,
@@ -93,13 +93,13 @@ class InstallmentAccountingTests(TestCase):
                 "paid_amount": "700.00",
                 "paid_date": "2026-07-03",
                 "payment_method": Installment.PAYMENT_CASH,
+                "received_by": "Test Cashier",
                 "notes": "",
             },
             instance=installment,
         )
 
-        self.assertFalse(form.is_valid())
-        self.assertIn("paid_amount", form.errors)
+        self.assertTrue(form.is_valid())
 
     def test_payment_form_rejects_zero_amount(self):
         installment = Installment.objects.create(
