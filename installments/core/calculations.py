@@ -75,15 +75,13 @@ def calculate_mode_b(remaining, interest_rate, months_count):
     interest = remaining * (interest_rate / Decimal("100"))
     total = remaining + interest
     installment = total / months_count
-    installment_rounded = _decimal(round_up_to_nearest_5(installment))
-    total_rounded = installment_rounded * months_count
 
     return {
         "remaining_amount": _quantize_money(remaining),
         "interest_rate": _quantize_rate(interest_rate),
-        "total_interest": _quantize_money(total_rounded - remaining),
-        "total_amount": _quantize_money(total_rounded),
-        "installment_amount": _quantize_money(installment_rounded),
+        "total_interest": _quantize_money(interest),
+        "total_amount": _quantize_money(total),
+        "installment_amount": _quantize_money(installment),
         "months_count": months_count,
     }
 
