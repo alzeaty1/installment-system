@@ -1,8 +1,7 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}العملاء{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>العملاء</h2><a class="btn btn-primary" href="{% url 'core:customer_create' %}">إضافة عميل</a></div>
-<form class="row g-2 mb-3"><div class="col-md-10"><input class="form-control" name="q" value="{{ query }}" placeholder="بحث بالاسم أو الهاتف"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">بحث</button></div></form>
-<div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>الاسم</th><th>الهاتف</th><th>الرقم القومي</th><th>العقود</th><th></th></tr></thead><tbody>{% for customer in customers %}<tr><td>{{ customer.name }}</td><td>{{ customer.phone }}</td><td>{{ customer.national_id|default:'-' }}</td><td>{{ customer.contracts_count }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'core:customer_detail' customer.id %}">عرض</a></td></tr>{% empty %}<tr><td colspan="5">لا يوجد عملاء.</td></tr>{% endfor %}</tbody></table></div></div>
+<div class="page-heading"><div><h2>العملاء</h2><p class="page-subtitle">قائمة العملاء وبياناتهم الأساسية.</p></div><a class="btn btn-primary" href="{% url 'core:customer_create' %}">إضافة عميل</a></div>
+<form class="row g-2 mb-3" method="get"><div class="col-md-10"><input class="form-control" type="text" name="q" placeholder="بحث..." value="{{ query }}"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">بحث</button></div></form>
+<div class="card stat"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>#</th><th>الاسم</th><th>الرقم القومي</th><th>عدد العقود</th><th>الحالة</th></tr></thead><tbody>{% for customer in customers %}<tr><td>{{ forloop.counter }}</td><td><a href="{% url 'core:customer_detail' customer.id %}">{{ customer.name }}</a></td><td>{{ customer.national_id|default:'—' }}</td><td>{{ customer.contracts_count }}</td><td>{% if customer.is_late %}<span class="badge bg-danger">متأخر</span>{% else %}<span class="badge bg-success">جيد</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5">لا يوجد عملاء.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}
-
