@@ -82,13 +82,13 @@
         {% if overpaid and overpaid != 0 %}
         <tr>
           <td class="text-muted">زيادة الدفعة (مرحّل للقادم):</td>
-          <td class="fw-bold text-success">+{{ overpaid|floatformat:2 }} جنيه</td>
+          <td class="fw-bold text-success">+{{  overpaid|mask_money }}</td>
         </tr>
         {% endif %}
         {% if carryover and carryover != 0 %}
         <tr>
           <td class="text-muted">مرحّل من السابق:</td>
-          <td class="fw-bold {% if carryover > 0 %}text-success{% else %}text-danger{% endif %}">{% if carryover > 0 %}+{% endif %}{{ carryover|floatformat:2 }} جنيه</td>
+          <td class="fw-bold {% if carryover > 0 %}text-success{% else %}text-danger{% endif %}">{% if carryover > 0 %}+{% endif %}{{  carryover|mask_money }}</td>
         </tr>
         {% endif %}
         <tr>
@@ -103,19 +103,19 @@
         </tr>
         <tr class="table-light">
           <td class="text-muted fw-bold text-success">المبلغ المدفوع:</td>
-          <td><span class="fw-bold text-success fs-4">{{ installment.paid_amount|floatformat:2 }}</span> <span class="fs-6">جنيه</span></td>
+          <td><span class="fw-bold text-success fs-4">{{ installment.paid_amount|mask_money }}</span> <span class="fs-6">جنيه</span></td>
         </tr>
         <tr>
           <td class="text-muted">المبلغ المتوقع:</td>
-          <td><span class="fw-bold">{{ expected_amount|floatformat:2 }}</span> <span class="fs-6">جنيه</span></td>
+          <td><span class="fw-bold">{{ expected_amount|mask_money }}</span> <span class="fs-6">جنيه</span></td>
         </tr>
         <tr>
           <td class="text-muted">الفرق:</td>
           <td>
             {% if difference < 0 %}
-              <span class="fw-bold text-danger">نقص {{ difference|floatformat:2 }} جنيه</span>
+              <span class="fw-bold text-danger">نقص {{  difference|mask_money }}</span>
             {% elif difference > 0 %}
-              <span class="fw-bold text-primary">زيادة {{ difference|floatformat:2 }} جنيه</span>
+              <span class="fw-bold text-primary">زيادة {{  difference|mask_money }}</span>
             {% else %}
               <span class="fw-bold text-success">مدفوع بالكامل</span>
             {% endif %}
@@ -131,7 +131,7 @@
         </tr>
         <tr class="border-top">
           <td class="text-muted pt-2">إجمالي المتبقي:</td>
-          <td class="pt-2"><span class="fw-bold text-danger">{{ remaining_balance|floatformat:2 }}</span> جنيه</td>
+          <td class="pt-2"><span class="fw-bold text-danger">{{ remaining_balance|mask_money }}</span> جنيه</td>
         </tr>
       </tbody>
     </table>

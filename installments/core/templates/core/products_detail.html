@@ -25,11 +25,11 @@
         <p>الفئة: {{ product.category|default:'-' }}</p>
         <p>النوع: {{ product.product_type|default:'-' }}</p>
         <p>الموديل: {{ product.model_name|default:'-' }}</p>
-        <p class="money">السعر التقديري: {{ product.estimated_price|default:0|floatformat:2 }} جنيه</p>
+        <p class="money">السعر التقديري: {{  product.estimated_price|default:0|mask_money }}</p>
         <div class="row g-2">
           <div class="col-md-4"><div class="border rounded p-2"><div class="text-muted small">مرات الشراء</div><strong>{{ purchase_count }}</strong></div></div>
           <div class="col-md-4"><div class="border rounded p-2"><div class="text-muted small">عقود مرتبطة</div><strong>{{ contracts_count }}</strong></div></div>
-          <div class="col-md-4"><div class="border rounded p-2"><div class="text-muted small">إجمالي الشراء</div><strong class="money">{{ total_purchase_cost|floatformat:2 }} جنيه</strong></div></div>
+          <div class="col-md-4"><div class="border rounded p-2"><div class="text-muted small">إجمالي الشراء</div><strong class="money">{{  total_purchase_cost|mask_money }}</strong></div></div>
         </div>
       </div>
     </div>
@@ -47,7 +47,7 @@
             <tr>
               <td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td>
               <td>{{ contract.customer.name }}</td>
-              <td class="money">{{ contract.customer_price|floatformat:2 }} جنيه</td>
+              <td class="money">{{  contract.customer_price|mask_money }}</td>
               <td>{{ contract.get_status_display }}</td>
             </tr>
           {% empty %}
@@ -83,7 +83,7 @@
               <td>{{ purchase.customer.name|default:'-' }}</td>
               <td>{% if purchase.contract %}<a href="{% url 'core:contract_detail' purchase.contract.id %}">{{ purchase.contract.contract_number }}</a>{% else %}-{% endif %}</td>
               <td>{{ purchase.supplier.name|default:'-' }}</td>
-              <td class="money">{{ purchase.purchase_price|floatformat:2 }} جنيه</td>
+              <td class="money">{{  purchase.purchase_price|mask_money }}</td>
               <td>{{ purchase.purchase_date }}</td>
               <td>
                 {% if purchase.image %}

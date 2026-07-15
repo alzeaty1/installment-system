@@ -6,7 +6,7 @@
 {% endblock %}
 {% block content %}
 <h2 class="mb-3">تسجيل دفع</h2>
-<div class="card stat mb-3"><div class="card-body"><p>العقد: <a href="{% url 'core:contract_detail' installment.contract.id %}">{{ installment.contract.contract_number }}</a></p><p>العميل: {{ installment.contract.customer.name }}</p><p class="mb-0">المستحق: <span class="money">{{ installment.amount|floatformat:2 }} جنيه</span></p></div></div>
+<div class="card stat mb-3"><div class="card-body"><p>العقد: <a href="{% url 'core:contract_detail' installment.contract.id %}">{{ installment.contract.contract_number }}</a></p><p>العميل: {{ installment.contract.customer.name }}</p><p class="mb-0">المستحق: <span class="money">{{  installment.amount|mask_money }}</span></p></div></div>
 <div class="card stat"><div class="card-body">
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}

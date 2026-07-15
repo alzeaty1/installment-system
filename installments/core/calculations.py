@@ -1,7 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP, ROUND_UP
 
 
-MONEY_PLACES = Decimal("0.01")
+MONEY_PLACES = Decimal("1")
 RATE_PLACES = Decimal("0.01")
 
 

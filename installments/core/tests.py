@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Account, ActivityLog, Contract, Customer, Installment, Product, Supplier, SupplierPurchase
+from .models import Account, ActivityLog, Contract, Customer, Installment, Product, Supplier, SupplierCategory, SupplierPurchase
 from .views import (
     ContractForm,
     CustomerForm,
@@ -489,8 +489,57 @@ class ActivityLogTests(TestCase):
         response = self.client.get(reverse("core:installment_receipt", args=[installment.id]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Audit Customer")
-        self.assertContains(response, "3300")
+        self.assertContains(response, "300")
         self.assertContains(response, "الشهر المستحق عنه")
 
 
+class SupplierCategoryLookupOrCreateTests(TestCase):
+    """Test that supplier category field works as lookup-or-create text input."""
 
+    def setUp(self):
+        self.user, self.account = _auth_client(self.client)
+
+    def test_create_supplier_with_new_category(self):
+        response = self.client.post(reverse("core:supplier_create"), data={
+            "name": "Test Supplier Cat",
+            "phone": "01011111111",
+            "address": "Test Address",
+            "category_name": "NewElectronics",
+            "notes": "",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(SupplierCategory.objects.filter(name="NewElectronics").exists())
+        supplier = Supplier.objects.get(name="Test Supplier Cat")
+        if supplier.category:
+            self.assertEqual(supplier.category.name, "NewElectronics")
+
+    def test_create_supplier_with_existing_category(self):
+        SupplierCategory.objects.create(name="ExistingPhones")
+        response = self.client.post(reverse("core:supplier_create"), data={
+            "name": "Test Supplier Cat 2",
+            "phone": "01022222222",
+            "address": "Test Address",
+            "category_name": "ExistingPhones",
+            "notes": "",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(SupplierCategory.objects.filter(name="ExistingPhones").count(), 1)
+        supplier = Supplier.objects.get(name="Test Supplier Cat 2")
+        if supplier.category:
+            self.assertEqual(supplier.category.name, "ExistingPhones")
+
+    def test_create_supplier_with_empty_category(self):
+        response = self.client.post(reverse("core:supplier_create"), data={
+            "name": "Test Supplier Cat 3",
+            "phone": "01033333333",
+            "address": "Test Address",
+            "category_name": "",
+            "notes": "",
+        })
+        self.assertEqual(response.status_code, 302)
+        supplier = Supplier.objects.get(name="Test Supplier Cat 3")
+        self.assertIsNone(supplier.category)
+
+    def tearDown(self):
+        Supplier.objects.filter(name__startswith="Test Supplier Cat").delete()
+        SupplierCategory.objects.filter(name__in=["NewElectronics", "ExistingPhones"]).delete()

@@ -14,8 +14,9 @@
 <div class="row g-3 mb-3">
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">العميل</div><a href="{% url 'core:customer_detail' contract.customer.id %}">{{ contract.customer.name }}</a></div></div></div>
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">التاجر</div>{% if contract.supplier %}<a href="{% url 'core:supplier_detail' contract.supplier.id %}">{{ contract.supplier.name }}</a>{% else %}<span class="text-muted">-</span>{% endif %}</div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي العقد</div><span class="money">{{ contract.total_amount|floatformat:2 }} جنيه</span></div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المدفوع</div><span class="money">{{ total_paid|floatformat:2 }} جنيه</span></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">إجمالي العقد</div><span class="money">{{  contract.total_amount|mask_money }}</span></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المدفوع</div><span class="money">{{  total_paid|mask_money }}</span></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المتبقي</div><span class="money text-danger fw-bold">{{ remaining_str }}</span></div></div></div>
 </div>
 
 <div class="card stat mb-3">
@@ -28,9 +29,9 @@
           <div class="text-muted small">لا توجد صورة للمنتج.</div>
         {% endif %}
       </div>
-      <div class="col-md-3"><p>المنتج: {{ contract.product_name }}</p><p>سعر الشراء: <span class="money">{{ contract.actual_cost|floatformat:2 }} جنيه</span></p><p>السعر للعميل: <span class="money">{{ contract.customer_price|floatformat:2 }} جنيه</span></p></div>
-      <div class="col-md-3"><p>المقدم: <span class="money">{{ contract.down_payment|floatformat:2 }} جنيه</span></p><p>المتبقي: <span class="money">{{ contract.remaining_amount|floatformat:2 }} جنيه</span></p><p>الفائدة: <span class="money">{{ contract.total_interest|floatformat:2 }} جنيه</span></p></div>
-      <div class="col-md-3"><p>النسبة: {{ contract.interest_rate|floatformat:2 }}%</p><p>عدد الشهور: {{ contract.months_count }}</p><p>القسط: <span class="money">{{ contract.installment_amount|floatformat:2 }} جنيه</span></p></div>
+      <div class="col-md-3"><p>المنتج: {{ contract.product_name }}</p><p>سعر الشراء: <span class="money">{{  contract.actual_cost|mask_money }}</span></p><p>السعر للعميل: <span class="money">{{  contract.customer_price|mask_money }}</span></p></div>
+      <div class="col-md-3"><p>المقدم: <span class="money">{{  contract.down_payment|mask_money }}</span></p><p>المتبقي: <span class="money">{{  contract.remaining_amount|mask_money }}</span></p><p>الفائدة: <span class="money">{{  contract.total_interest|mask_money }}</span></p></div>
+      <div class="col-md-3"><p>النسبة: {{ contract.interest_rate|floatformat:2 }}%</p><p>عدد الشهور: {{ contract.months_count }}</p><p>القسط: <span class="money">{{  contract.installment_amount|mask_money }}</span></p></div>
     </div>
     <p class="mb-0 mt-3">ملاحظات: {{ contract.notes|default:'-' }}</p>
   </div>
@@ -53,7 +54,7 @@
       {% endwith %}
     </div>
     <div class="d-flex justify-content-between small text-muted mb-2">
-      <span>المدفوع: {{ total_paid|floatformat:2 }} / {{ contract.total_amount|floatformat:2 }} جنيه</span>
+      <span>المدفوع: {{ total_paid|mask_money }} / {{  contract.total_amount|mask_money }}</span>
       <span>({{ contract.progress_percentage }}%)</span>
     </div>
     <div class="table-responsive">
@@ -64,8 +65,8 @@
             <tr>
               <td>{{ installment.installment_number }}</td>
               <td>{{ installment.due_date }}</td>
-              <td class="money">{{ installment.amount|floatformat:2 }} جنيه</td>
-              <td class="money">{{ installment.paid_amount|floatformat:2 }} جنيه</td>
+              <td class="money">{{  installment.amount|mask_money }}</td>
+              <td class="money">{{  installment.paid_amount|mask_money }}</td>
               <td>{{ installment.get_status_display }}</td>
               <td>
                 <div class="btn-group">

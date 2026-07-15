@@ -51,7 +51,7 @@
             <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
             <td>{{ inst.installment_number }}</td>
             <td>{{ inst.due_date|date:"Y-m-d" }}</td>
-            <td class="money">{{ inst.amount|floatformat:2 }}</td>
+            <td class="money">{{ inst.amount|mask_money }}</td>
             <td>
               {% if inst.status == 'pending' %}<span class="badge bg-warning text-dark">معلق</span>
               {% elif inst.status == 'paid' %}<span class="badge bg-success">مدفوع</span>

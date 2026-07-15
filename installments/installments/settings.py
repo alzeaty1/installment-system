@@ -39,17 +39,18 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-local-dev-key-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', ['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', ['localhost', '127.0.0.1', 'testserver'])
 # Auto-add the local machine's IP address so devices on the same network can access
 # the application when running with --host=0.0.0.0 (used in StartServer.bat).
 if '*' not in ALLOWED_HOSTS:
     try:
-        import socket
-        hostname = socket.gethostname()
-        local_ips = {addr_info[4][0] for addr_info in socket.getaddrinfo(hostname, None)}
-        for ip in local_ips:
-            if ip and ip not in ALLOWED_HOSTS:
-                ALLOWED_HOSTS.append(ip)
+        import subprocess
+        result = subprocess.run(['ipconfig'], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        for line in result.stdout.split('\n'):
+            if 'IPv4' in line:
+                ip = line.split(':')[-1].strip()
+                if ip and ip not in ALLOWED_HOSTS:
+                    ALLOWED_HOSTS.append(ip)
     except Exception:
         pass
 
@@ -97,6 +98,7 @@ TEMPLATES = [
         'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
+            'builtins': ['core.templatetags.money_tags'],
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',

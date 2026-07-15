@@ -12,7 +12,10 @@ echo [2/3] Activating virtual environment...
 call ..\venv\Scripts\activate.bat
 
 :: Detect local IP for LAN access display
-for /f "tokens=*" %%i in ('python -c "import socket; ips=[a[4][0] for a in socket.getaddrinfo(socket.gethostname(), None) if '127.' not in a[4][0]]; print(ips[0] if ips else '127.0.0.1')"') do set LOCAL_IP=%%i
+for /f "tokens=4" %%i in ('route print 0.0.0.0 ^| findstr "0.0.0.0"') do set LOCAL_IP=%%i
+
+:: Allow all hosts (local network)
+set DJANGO_ALLOWED_HOSTS=*
 
 echo [3/3] Starting Waitress server (multi-threaded)...
 echo.

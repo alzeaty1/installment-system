@@ -28,6 +28,7 @@ from .models import (
     Receiver,
     Settings,
     Supplier,
+    SupplierCategory,
     SupplierPurchase,
 )
 
@@ -143,25 +144,50 @@ class CustomerForm(BootstrapModelForm):
 
 
 class SupplierForm(BootstrapModelForm):
-    new_product_image = forms.ImageField(
-        label="صورة المنتج أو السيريال أو فاتورة الشراء",
+    category_name = forms.CharField(
+        label="الفئة",
         required=False,
+        widget=forms.TextInput(attrs={"list": "categorySuggestions", "placeholder": "اكتب اسم الفئة للبحث أو إضافة جديد"}),
     )
 
     class Meta:
         model = Supplier
-        fields = ["name", "phone", "address", "category", "notes"]
+        fields = ["name", "phone", "address", "notes"]
         labels = {
             "name": "اسم التاجر",
             "phone": "رقم الهاتف",
             "address": "العنوان",
-            "category": "الفئة",
             "notes": "ملاحظات",
         }
         widgets = {
             "address": forms.Textarea(attrs={"rows": 3}),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.category:
+            self.fields["category_name"].initial = self.instance.category.name
+
+    def clean(self):
+        cleaned_data = super().clean()
+        category_name = (cleaned_data.get("category_name") or "").strip()
+        if category_name:
+            category = SupplierCategory.objects.filter(name__iexact=category_name).order_by("id").first()
+            if not category:
+                category = SupplierCategory.objects.create(name=category_name)
+            cleaned_data["category"] = category
+        else:
+            cleaned_data["category"] = None
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if "category" in self.cleaned_data:
+            instance.category = self.cleaned_data["category"]
+        if commit:
+            instance.save()
+        return instance
 
 
 class ProductForm(BootstrapModelForm):
@@ -372,8 +398,16 @@ class InstallmentPaymentForm(BootstrapModelForm):
                 self.add_error("transfer_sender_name", "يجب إدخال اسم المرسل.")
         
         elif method == "cash":
+            receiver_id = self.data.get("receiver")
+            if receiver_id:
+                try:
+                    from .models import Receiver
+                    receiver = Receiver.objects.get(id=int(receiver_id), account=self.instance.account)
+                    cleaned_data["received_by"] = receiver.name
+                except (ValueError, TypeError, Receiver.DoesNotExist):
+                    pass
             if not cleaned_data.get("received_by"):
-                self.add_error("received_by", "يجب إدخال اسم المستلم.")
+                self.add_error(None, "يجب اختيار المستلم أو إدخال اسمه.")
         
         return cleaned_data
 
@@ -635,10 +669,18 @@ def dashboard(request):
     for inst in due_today:
         inst.whatsapp_url = _get_whatsapp_url(inst, "reminder")
     
-    # المتأخرات
+    # المتأخرات - مجمعة حسب العميل (عدد الأقساط + إجمالي المبالغ)
     overdue_installments = installments.filter(status=Installment.STATUS_LATE)
-    for inst in overdue_installments:
-        inst.whatsapp_url = _get_whatsapp_url(inst, "overdue")
+    overdue_by_customer = (
+        overdue_installments
+        .values("contract__customer_id", "contract__customer__name")
+        .annotate(
+            count=Count("id"),
+            total_amount=Sum("amount", default=MONEY_ZERO),
+        )
+        .order_by("-total_amount")
+    )
+    overdue_count = overdue_installments.count()
     
     # إجمالي المتوقع اليوم
     total_expected_today = due_today.aggregate(total=Sum("amount", default=MONEY_ZERO))["total"]
@@ -692,7 +734,8 @@ def dashboard(request):
 
     context = {
         "due_today": due_today,
-        "overdue_installments": overdue_installments,
+        "overdue_by_customer": overdue_by_customer,
+        "overdue_count": overdue_count,
         "total_expected_today": total_expected_today,
         "income_this_month": income_this_month,
         "new_contracts_count": new_contracts_count,
@@ -705,7 +748,7 @@ def dashboard(request):
         "total_completed": contracts.filter(status=Contract.STATUS_COMPLETED).count(),
         "total_cancelled": contracts.filter(status=Contract.STATUS_CANCELLED).count(),
         "due_today_count": due_today.count(),
-        "overdue_count": overdue_installments.count(),
+        "overdue_count": overdue_count,
         "total_invested": _sum(contracts, "actual_cost"),
         "total_collected": _sum(installments, "paid_amount"),
         "total_profit": total_profit,
@@ -762,6 +805,10 @@ def customer_detail(request, id):
     contracts = Contract.objects.filter(customer=customer, account=request.current_account).order_by("-created_at")
     installments = Installment.objects.filter(contract__customer=customer, account=request.current_account).select_related("contract").order_by("due_date")
     
+    late_installments = list(installments.filter(status=Installment.STATUS_LATE))
+    for inst in late_installments:
+        inst.whatsapp_url = _get_whatsapp_url(inst, "overdue")
+    
     total_paid = _sum(installments, "paid_amount")
     total_due = _remaining_installments_total(installments)
     total_amount = _sum(installments, "amount")
@@ -774,6 +821,7 @@ def customer_detail(request, id):
         "customer": customer,
         "contracts": contracts,
         "installments": installments,
+        "late_installments": late_installments,
         "total_paid": total_paid,
         "total_due": total_due,
         "contracts_count": contracts.count(),
@@ -836,12 +884,11 @@ def supplier_list(request):
 def supplier_create(request):
     form = SupplierForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        supplier = form.save(commit=False)
-        supplier.account = request.current_account
-        supplier.save()
+        supplier = form.save()
         messages.success(request, "تم حفظ التاجر.")
         return redirect("core:supplier_detail", id=supplier.id)
-    return render(request, "core/suppliers_form.html", {"form": form, "title": "إضافة تاجر"})
+    category_suggestions = SupplierCategory.objects.order_by("name")
+    return render(request, "core/suppliers_form.html", {"form": form, "title": "إضافة تاجر", "category_suggestions": category_suggestions})
 
 
 def supplier_detail(request, id):
@@ -855,17 +902,18 @@ def supplier_detail(request, id):
 
 
 def supplier_edit(request, id):
-    supplier = get_object_or_404(Supplier, id=id, account=request.current_account)
+    supplier = get_object_or_404(Supplier, id=id)
     form = SupplierForm(request.POST or None, instance=supplier)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "تم تحديث التاجر.")
         return redirect("core:supplier_detail", id=supplier.id)
-    return render(request, "core/suppliers_form.html", {"form": form, "title": "تعديل تاجر"})
+    category_suggestions = SupplierCategory.objects.order_by("name")
+    return render(request, "core/suppliers_form.html", {"form": form, "title": "تعديل تاجر", "category_suggestions": category_suggestions})
 
 
 def supplier_delete(request, id):
-    supplier = get_object_or_404(Supplier, id=id, account=request.current_account)
+    supplier = get_object_or_404(Supplier, id=id)
     if request.method == "POST":
         supplier.delete()
         messages.success(request, "تم حذف التاجر.")
@@ -1055,6 +1103,7 @@ def contract_detail(request, id):
         "installments": installments,
         "profit": _contract_profit(contract),
         "total_paid": total_paid,
+        "remaining_str": int(contract.total_amount - total_paid),
         "paid_count": paid_count,
         "total_count": total_count,
         "progress": progress,

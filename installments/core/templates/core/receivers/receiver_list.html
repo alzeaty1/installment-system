@@ -15,7 +15,7 @@
           <div>
             <h5 class="card-title mb-1">🧑 {{ r.name }}</h5>
             <p class="text-muted small mb-0">
-              إجمالي الاستلام: <strong class="money">{{ r.total_received|default:"0"|floatformat:2 }} جنيه</strong>
+              إجمالي الاستلام: <strong class="money">{{  r.total_received|default:"0"|mask_money }}</strong>
             </p>
             <p class="text-muted small mb-2">
               عدد الدفعات: {{ r.payment_count|default:"0" }} دفعة

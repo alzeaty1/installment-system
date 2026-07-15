@@ -73,10 +73,11 @@ class CalculationModeATests(TestCase):
 
     def test_mode_a_fractional_installment(self):
         result = calculate_mode_a(Decimal("10000"), Decimal("3333.33"), 3)
-        # total = 3333.33 * 3 = 9999.99, interest = -0.01
-        self.assertEqual(result["installment_amount"], Decimal("3333.33"))
-        self.assertEqual(result["total_amount"], Decimal("9999.99"))
-        self.assertEqual(result["total_interest"], Decimal("-0.01"))
+        # total = 3333.33 * 3 = 9999.99 → quantized to 10000
+        # interest = 10000 - 10000 = 0
+        self.assertEqual(result["installment_amount"], Decimal("3333"))
+        self.assertEqual(result["total_amount"], Decimal("10000"))
+        self.assertEqual(result["total_interest"], Decimal("0"))
 
 
 # ─── Mode B Calculation Tests ──────────────────────────────────────────
@@ -382,7 +383,8 @@ class PaymentFormValidationTests(TestCase):
             "payment_method": "cash", "received_by": "", "notes": "",
         })
         self.assertFalse(form.is_valid())
-        self.assertIn("received_by", form.errors)
+        self.assertIn("__all__", form.errors)
+        self.assertIn("يجب اختيار المستلم أو إدخال اسمه.", form.errors["__all__"][0])
 
     def test_cash_valid_with_received_by(self):
         form = InstallmentPaymentForm(data={
@@ -504,22 +506,23 @@ class ContractCreateEdgeTests(TestCase):
 class CalculationRoundingTests(TestCase):
     """Tests for decimal rounding precision."""
 
-    def test_rounding_two_decimal_places(self):
-        """Money amounts should always have 2 decimal places."""
+    def test_rounding_whole_numbers(self):
+        """Money amounts should always be whole numbers (no decimals)."""
         result = calculate_mode_b(Decimal("9999.99"), Decimal("5"), 3)
-        self.assertEqual(result["remaining_amount"].as_tuple().exponent, -2)
-        self.assertEqual(result["total_amount"].as_tuple().exponent, -2)
-        self.assertEqual(result["installment_amount"].as_tuple().exponent, -2)
+        self.assertEqual(result["remaining_amount"].as_tuple().exponent, 0)
+        self.assertEqual(result["total_amount"].as_tuple().exponent, 0)
+        self.assertEqual(result["installment_amount"].as_tuple().exponent, 0)
 
     def test_rate_two_decimal_places(self):
         result = calculate_mode_a(Decimal("5000"), Decimal("5500"), 1)
         self.assertEqual(result["interest_rate"].as_tuple().exponent, -2)
 
     def test_mode_b_half_up_rounding(self):
-        """Verify rounding is ROUND_HALF_UP (Banker's rounding)."""
-        # 10000 * 3.33% = 333, total = 10333, installment = 3444.333... → 3444.33
+        """Verify rounding is ROUND_HALF_UP (rounds to whole number)."""
+        # 10000 * 3.33% = 333, total = 10333, installment = 3444.333... → 3444
         result = calculate_mode_b(Decimal("10000"), Decimal("3.33"), 3)
-        self.assertEqual(result["installment_amount"].as_tuple().exponent, -2)
+        self.assertEqual(result["installment_amount"].as_tuple().exponent, 0)
+        self.assertEqual(result["installment_amount"], Decimal("3444"))
 
 
 # ─── Fixed-Term Contract Date Tracking Tests ──────────────────────────

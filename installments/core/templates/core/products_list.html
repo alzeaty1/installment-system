@@ -45,7 +45,7 @@
           {% if product.model_name %}
           <p class="text-info small mb-1">موديل: {{ product.model_name }}</p>
           {% endif %}
-          <p class="money mb-1">السعر التقديري: {{ product.estimated_price|default:0|floatformat:2 }} جنيه</p>
+          <p class="money mb-1">السعر التقديري: {{  product.estimated_price|default:0|mask_money }}</p>
           <p class="small text-muted mb-3">تم شراؤه {{ product.purchases_count }} مرة{% if product.last_purchase_date %} | آخر شراء: {{ product.last_purchase_date|date:"Y-m-d" }}{% endif %}</p>
           <a class="btn btn-sm btn-outline-primary" href="{% url 'core:product_detail' product.id %}">عرض السجل</a>
           <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:product_edit' product.id %}">تعديل</a>

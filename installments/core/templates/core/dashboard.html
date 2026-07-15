@@ -11,7 +11,7 @@
   <div class="col-md-6">
     <div class="card stat border-0 shadow-sm">
       <div class="card-body">
-        <h5 class="card-title">أقساط اليوم (المتوقع: {{ total_expected_today|floatformat:2 }} جنيه)</h5>
+        <h5 class="card-title">أقساط اليوم (المتوقع: {{  total_expected_today|mask_money }})</h5>
         <div class="table-responsive">
           <table class="table table-sm">
             <thead><tr><th>العميل</th><th>المبلغ</th><th></th></tr></thead>
@@ -19,7 +19,7 @@
               {% for inst in due_today %}
               <tr>
                 <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
-                <td class="money">{{ inst.amount|floatformat:2 }}</td>
+                <td class="money">{{ inst.amount|mask_money }}</td>
                 <td>
                   <a href="{% url 'core:installment_pay' inst.id %}" class="btn btn-sm btn-outline-success">دفع</a>
                   <a href="{{ inst.whatsapp_url }}" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-whatsapp"></i></a>
@@ -40,16 +40,13 @@
         <h5 class="card-title">المتأخرات (عدد: {{ overdue_count }})</h5>
         <div class="table-responsive">
           <table class="table table-sm">
-            <thead><tr><th>العميل</th><th>المبلغ</th><th></th></tr></thead>
+            <thead><tr><th>العميل</th><th>عدد الأقساط</th><th>الإجمالي</th></tr></thead>
             <tbody>
-              {% for inst in overdue_installments %}
+              {% for item in overdue_by_customer %}
               <tr>
-                <td><a href="{% url 'core:customer_detail' inst.contract.customer.id %}">{{ inst.contract.customer.name }}</a></td>
-                <td class="money">{{ inst.amount|floatformat:2 }}</td>
-                <td>
-                  <a href="{% url 'core:installment_pay' inst.id %}" class="btn btn-sm btn-outline-success">دفع</a>
-                  <a href="{{ inst.whatsapp_url }}" target="_blank" class="btn btn-sm btn-outline-danger"><i class="bi bi-whatsapp"></i></a>
-                </td>
+                <td><a href="{% url 'core:customer_detail' item.contract__customer_id %}">{{ item.contract__customer__name }}</a></td>
+                <td>{{ item.count }}</td>
+                <td class="money">{{ item.total_amount|mask_money }}</td>
               </tr>
               {% empty %}
               <tr><td colspan="3" class="text-center text-muted">لا توجد متأخرات.</td></tr>
@@ -66,7 +63,7 @@
     <div class="card stat border-0 shadow-sm">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-cash-stack fs-1 text-success opacity-75"></i>
-        <div><div class="text-muted small">دخل الشهر الحالي</div><div class="h4 mb-0 money">{{ income_this_month|floatformat:2 }} جنيه</div></div>
+        <div><div class="text-muted small">دخل الشهر الحالي</div><div class="h4 mb-0 money">{{  income_this_month|mask_money }}</div></div>
       </div>
     </div>
   </div>
@@ -109,7 +106,7 @@
     <div class="card stat border-0 shadow-sm">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-pie-chart fs-1 text-secondary opacity-75"></i>
-        <div><div class="text-muted small">إجمالي المستثمر</div><div class="h5 mb-0 money">{{ total_invested|floatformat:2 }} جنيه</div></div>
+        <div><div class="text-muted small">إجمالي المستثمر</div><div class="h5 mb-0 money">{{  total_invested|mask_money }}</div></div>
       </div>
     </div>
   </div>
@@ -117,7 +114,7 @@
     <div class="card stat border-0 shadow-sm">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-wallet2 fs-1 text-success opacity-75"></i>
-        <div><div class="text-muted small">إجمالي المحصل</div><div class="h5 mb-0 money">{{ total_collected|floatformat:2 }} جنيه</div></div>
+        <div><div class="text-muted small">إجمالي المحصل</div><div class="h5 mb-0 money">{{  total_collected|mask_money }}</div></div>
       </div>
     </div>
   </div>
@@ -125,7 +122,7 @@
     <div class="card stat border-0 shadow-sm">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-graph-up-arrow fs-1 text-primary opacity-75"></i>
-        <div><div class="text-muted small">إجمالي الربح</div><div class="h5 mb-0 money">{{ total_profit|floatformat:2 }} جنيه</div></div>
+        <div><div class="text-muted small">إجمالي الربح</div><div class="h5 mb-0 money">{{  total_profit|mask_money }}</div></div>
       </div>
     </div>
   </div>
@@ -153,7 +150,7 @@
               <tr>
                 <td><a href="{% url 'core:contract_detail' contract.id %}">{{ contract.contract_number }}</a></td>
                 <td>{{ contract.customer.name }}</td>
-                <td class="money">{{ contract.total_amount|floatformat:2 }}</td>
+                <td class="money">{{ contract.total_amount|mask_money }}</td>
                 <td>{% if contract.status == 'active' %}<span class="badge bg-success">نشط</span>{% elif contract.status == 'completed' %}<span class="badge bg-primary">مكتمل</span>{% elif contract.status == 'overdue' %}<span class="badge bg-danger">متأخر</span>{% else %}<span class="badge bg-secondary">ملغي</span>{% endif %}</td>
               </tr>
               {% empty %}
@@ -177,7 +174,7 @@
               <tr>
                 <td>{{ item.contract.contract_number }}</td>
                 <td>{{ item.contract.customer.name }}</td>
-                <td class="money text-success">{{ item.paid_amount|floatformat:2 }} جنيه</td>
+                <td class="money text-success">{{  item.paid_amount|mask_money }}</td>
                 <td class="small">{{ item.paid_date|date:"Y-m-d" }}</td>
               </tr>
               {% empty %}

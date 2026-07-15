@@ -5,7 +5,7 @@
   <div>
     <h2 class="mb-0">🧑 {{ receiver.name }}</h2>
     <p class="text-muted mb-0">
-      إجمالي الاستلام: <strong class="money">{{ total|floatformat:2 }} جنيه</strong>
+      إجمالي الاستلام: <strong class="money">{{  total|mask_money }}</strong>
       &nbsp;|&nbsp; عدد الدفعات: {{ installments|length }} دفعة
       {% if not receiver.is_active %}<span class="badge bg-warning text-dark">غير نشط</span>{% endif %}
     </p>
@@ -38,7 +38,7 @@
           </a>
         </td>
         <td>{{ inst.get_payment_method_display }}</td>
-        <td class="money">{{ inst.paid_amount|floatformat:2 }} جنيه</td>
+        <td class="money">{{  inst.paid_amount|mask_money }}</td>
       </tr>
       {% endfor %}
     </tbody>

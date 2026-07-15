@@ -33,20 +33,20 @@
       </div>
       <div class="row g-3 mb-4">
         <div class="col-6 col-md-4"><div class="text-muted small">المنتج</div><div class="fw-bold">{{ contract.product_name }}</div></div>
-        <div class="col-6 col-md-4"><div class="text-muted small">سعر المنتج</div><div class="fw-bold money">{{ contract.customer_price|floatformat:2 }} جنيه</div></div>
-        {% if contract.down_payment %}<div class="col-6 col-md-4"><div class="text-muted small">المقدم</div><div class="fw-bold money">{{ contract.down_payment|floatformat:2 }} جنيه</div></div>{% endif %}
+        <div class="col-6 col-md-4"><div class="text-muted small">سعر المنتج</div><div class="fw-bold money">{{  contract.customer_price|mask_money }}</div></div>
+        {% if contract.down_payment %}<div class="col-6 col-md-4"><div class="text-muted small">المقدم</div><div class="fw-bold money">{{  contract.down_payment|mask_money }}</div></div>{% endif %}
         <div class="col-6 col-md-4"><div class="text-muted small">النسبة</div><div class="fw-bold">{{ contract.interest_rate|floatformat:1 }}%</div></div>
-        <div class="col-6 col-md-4"><div class="text-muted small">الإجمالي</div><div class="fw-bold money text-success">{{ contract.total_amount|floatformat:2 }} جنيه</div></div>
-        <div class="col-6 col-md-4"><div class="text-muted small">القسط الشهري</div><div class="fw-bold money">{{ contract.installment_amount|floatformat:2 }} جنيه</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">الإجمالي</div><div class="fw-bold money text-success">{{  contract.total_amount|mask_money }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">القسط الشهري</div><div class="fw-bold money">{{  contract.installment_amount|mask_money }}</div></div>
         <div class="col-6 col-md-4"><div class="text-muted small">عدد الأقساط</div><div class="fw-bold">{{ contract.months_count }}</div></div>
-        <div class="col-6 col-md-4"><div class="text-muted small">المدفوع</div><div class="fw-bold money text-success">{{ total_paid|floatformat:2 }} جنيه</div></div>
-        <div class="col-6 col-md-4"><div class="text-muted small">الباقي</div><div class="fw-bold money text-danger">{{ total_remaining|floatformat:2 }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">المدفوع</div><div class="fw-bold money text-success">{{  total_paid|mask_money }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">الباقي</div><div class="fw-bold money text-danger">{{ total_remaining|mask_money }}</div></div>
       </div>
 
       <!-- Progress Bar -->
       <div class="mb-4">
         <div class="d-flex justify-content-between small mb-1">
-          <span>التقدم — {{ total_paid|floatformat:2 }} / {{ contract.total_amount|floatformat:2 }} جنيه</span>
+          <span>التقدم — {{ total_paid|mask_money }} / {{  contract.total_amount|mask_money }}</span>
           <span>{{ paid_count }} / {{ total_count }} قسط مدفوع ({{ contract.progress_percentage }}%)</span>
         </div>
         <div class="progress bg-light">
@@ -75,9 +75,9 @@
             <tr>
               <td>{{ row.inst.installment_number }}</td>
               <td>{{ row.inst.due_date|date:"Y-m-d" }}</td>
-              <td class="money">{{ row.inst.amount|floatformat:2 }}</td>
-              <td class="money">{{ row.inst.paid_amount|floatformat:2 }}</td>
-              <td class="money">{{ row.remaining|floatformat:2 }}</td>
+              <td class="money">{{ row.inst.amount|mask_money }}</td>
+              <td class="money">{{ row.inst.paid_amount|mask_money }}</td>
+              <td class="money">{{ row.remaining|mask_money }}</td>
               <td>
                 {% if row.inst.status == 'paid' %}<span class="badge bg-success">تم</span>
                 {% elif row.inst.status == 'overpaid' %}<span class="badge bg-info">زيادة</span>
