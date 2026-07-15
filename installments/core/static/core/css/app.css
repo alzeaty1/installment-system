@@ -303,6 +303,26 @@ body.theme-dark .quick-pay-card { background:linear-gradient(90deg, rgba(185,28,
 body.theme-dark .payment-summary { background:linear-gradient(135deg, rgba(40,138,238,.14), transparent 55%), var(--surface); }
 body.theme-dark .btn-outline-dark { color:var(--ink); border-color:#6b7c70; }
 body.theme-dark .btn-outline-dark:hover { color:#0d1530; background:var(--ink); border-color:var(--ink); }
+body.theme-dark .btn-outline-primary,
+body.theme-dark .btn-outline-success {
+  color: var(--gold);
+  border-color: rgba(234, 224, 207, .5);
+}
+body.theme-dark .btn-outline-primary:hover,
+body.theme-dark .btn-outline-success:hover {
+  color: var(--sidebar);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+body.theme-dark .btn-outline-info {
+  color: #7dc5f8;
+  border-color: rgba(125, 197, 248, .45);
+}
+body.theme-dark .btn-outline-info:hover {
+  color: #0d1530;
+  background: #7dc5f8;
+  border-color: #7dc5f8;
+}
 body.theme-dark .modal-content { background:#0d1530; color:var(--ink); }
 
 @media (min-width: 992px) {
