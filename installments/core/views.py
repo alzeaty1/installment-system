@@ -660,6 +660,12 @@ def _pdf_response(template, context, filename):
 
 
 # --- Authorization helpers ---
+def logout_view(request):
+    """Custom logout that accepts GET (not just POST)."""
+    from django.contrib.auth import logout
+    from django.shortcuts import redirect
+    logout(request)
+    return redirect('/login/')
 def require_write(view_func):
     """Decorator: viewers can't create/edit/delete. Redirects all requests."""
     def _wrapped(request, *args, **kwargs):
