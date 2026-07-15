@@ -1,7 +1,7 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}تفاصيل العميل{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h2>{{ customer.name }}</h2><p class="page-subtitle">ملف العميل، العقود، والمتأخرات السريعة.</p></div><div><a class="btn btn-outline-primary" href="{% url 'core:customer_edit' customer.id %}">تعديل</a> <form class="d-inline" method="post" action="{% url 'core:customer_delete' customer.id %}" onsubmit="return confirm('حذف العميل سيحذف العقود والأقساط المرتبطة به. هل أنت متأكد؟');">{% csrf_token %}<button class="btn btn-outline-danger">حذف</button></form></div></div>
+<div class="page-heading"><div><h2>{{ customer.name }}</h2><p class="page-subtitle">ملف العميل، العقود، والمتأخرات السريعة.</p></div><div>{% if not is_viewer %}<a class="btn btn-outline-primary" href="{% url 'core:customer_edit' customer.id %}">تعديل</a>{% endif %} <form class="d-inline" method="post" action="{% url 'core:customer_delete' customer.id %}" onsubmit="return confirm('حذف العميل سيحذف العقود والأقساط المرتبطة به. هل أنت متأكد؟');">{% csrf_token %}{% if not is_viewer %}<button class="btn btn-outline-danger">حذف</button>{% endif %}</form></div></div>
 <div class="row g-3 mb-3">
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">عدد العقود</div><div class="h4">{{ contracts_count }}</div></div></div></div>
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">الأقساط المتأخرة</div><div class="h4 text-danger">{{ late_installments_count }}</div></div></div></div>

@@ -6,4 +6,5 @@ def accounts_processor(request):
     return {
         "accounts": accounts,
         "current_account": getattr(request, "current_account", None),
+        "is_viewer": request.user.groups.filter(name="viewer").exists() if request.user.is_authenticated else False,
     }

@@ -6,7 +6,7 @@
     <h2>لوحة التحكم</h2>
     <p class="page-subtitle">نظرة سريعة على التحصيل، المتأخرات، وحركة العقود.</p>
   </div>
-  <a class="btn btn-primary" href="{% url 'core:contract_create' %}"><i class="bi bi-plus-lg ms-1"></i>عقد جديد</a>
+  {% if not is_viewer %}<a class="btn btn-primary" href="{% url 'core:contract_create' %}"><i class="bi bi-plus-lg ms-1"></i>عقد جديد</a>{% endif %}
 </div>
 
 <!-- Row 0: Today's Tasks -->

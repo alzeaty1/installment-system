@@ -4,8 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2 class="mb-0">{{ product.name }}</h2>
   <div>
-    <a class="btn btn-outline-primary" href="{% url 'core:product_edit' product.id %}">تعديل</a>
-    <form class="d-inline" method="post" action="{% url 'core:product_delete' product.id %}" onsubmit="return confirm('هل تريد حذف المنتج؟ العقود القديمة ستحتفظ باسم المنتج فقط.');">{% csrf_token %}<button class="btn btn-outline-danger">حذف</button></form>
+    {% if not is_viewer %}<a class="btn btn-outline-primary" href="{% url 'core:product_edit' product.id %}">تعديل</a> <form class="d-inline" method="post" action="{% url 'core:product_delete' product.id %}" onsubmit="return confirm('هل تريد حذف المنتج؟ العقود القديمة ستحتفظ باسم المنتج فقط.');">{% csrf_token %}<button class="btn btn-outline-danger">حذف</button></form>{% endif %}
     <a class="btn btn-outline-secondary" href="{% url 'core:product_list' %}">رجوع للمنتجات</a>
   </div>
 </div>

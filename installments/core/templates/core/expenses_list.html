@@ -1,7 +1,7 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}المصروفات{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>المصروفات</h2><a class="btn btn-primary" href="{% url 'core:expense_create' %}">إضافة مصروف</a></div>
+<div class="d-flex justify-content-between align-items-center mb-3"><h2>المصروفات</h2>{% if not is_viewer %}<a class="btn btn-primary" href="{% url 'core:expense_create' %}">إضافة مصروف</a>{% endif %}</div>
 <div class="card stat mb-3"><div class="card-body">إجمالي المصروفات: <span class="money fw-bold">{{  total|mask_money }}</span></div></div>
 <div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>البند</th><th>الفئة</th><th>المبلغ</th><th>التاريخ</th><th>ملاحظات</th></tr></thead><tbody>{% for expense in expenses %}<tr><td>{{ expense.title }}</td><td>{{ expense.category|default:'-' }}</td><td class="money">{{  expense.amount|mask_money }}</td><td>{{ expense.expense_date }}</td><td>{{ expense.notes|default:'-' }}</td></tr>{% empty %}<tr><td colspan="5">لا توجد مصروفات.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}

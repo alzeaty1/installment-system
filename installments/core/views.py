@@ -3,6 +3,7 @@ import json
 from decimal import Decimal
 
 from django import forms
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, F, Max, Q, Sum
@@ -658,6 +659,16 @@ def _pdf_response(template, context, filename):
     return response
 
 
+# --- Authorization helpers ---
+def require_write(view_func):
+    """Decorator: viewers can't create/edit/delete. Redirects all requests."""
+    def _wrapped(request, *args, **kwargs):
+        if request.user.groups.filter(name='viewer').exists():
+            messages.error(request, "صلاحية المشاهدة فقط. لا يمكنك التعديل.")
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
 def dashboard(request):
     _mark_late_installments()
     today = _today()
@@ -778,6 +789,7 @@ def customer_list(request):
     return render(request, "core/customers_list.html", {"customers": customers, "query": query})
 
 
+@require_write
 def customer_create(request):
     form = CustomerForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -831,6 +843,7 @@ def customer_detail(request, id):
     return render(request, "core/customers_detail.html", context)
 
 
+@require_write
 def customer_edit(request, id):
     customer = get_object_or_404(Customer, id=id, account=request.current_account)
     old_values = {"name": customer.name, "phone": customer.phone}
@@ -855,6 +868,7 @@ def customer_edit(request, id):
     return render(request, "core/customers_form.html", {"form": form, "title": "تعديل عميل"})
 
 
+@require_write
 def customer_delete(request, id):
     customer = get_object_or_404(Customer, id=id, account=request.current_account)
     if request.method == "POST":
@@ -881,6 +895,7 @@ def supplier_list(request):
     return render(request, "core/suppliers_list.html", {"suppliers": suppliers, "query": query})
 
 
+@require_write
 def supplier_create(request):
     form = SupplierForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -901,6 +916,7 @@ def supplier_detail(request, id):
     )
 
 
+@require_write
 def supplier_edit(request, id):
     supplier = get_object_or_404(Supplier, id=id)
     form = SupplierForm(request.POST or None, instance=supplier)
@@ -912,6 +928,7 @@ def supplier_edit(request, id):
     return render(request, "core/suppliers_form.html", {"form": form, "title": "تعديل تاجر", "category_suggestions": category_suggestions})
 
 
+@require_write
 def supplier_delete(request, id):
     supplier = get_object_or_404(Supplier, id=id)
     if request.method == "POST":
@@ -956,6 +973,7 @@ def product_list(request):
     )
 
 
+@require_write
 def product_create(request):
     form = ProductForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
@@ -989,6 +1007,7 @@ def product_detail(request, id):
     )
 
 
+@require_write
 def product_edit(request, id):
     product = get_object_or_404(Product, id=id, account=request.current_account)
     form = ProductForm(request.POST or None, request.FILES or None, instance=product)
@@ -999,6 +1018,7 @@ def product_edit(request, id):
     return render(request, "core/products_form.html", {"form": form, "title": "تعديل منتج"})
 
 
+@require_write
 def product_delete(request, id):
     product = get_object_or_404(Product, id=id, account=request.current_account)
     if request.method == "POST":
@@ -1032,6 +1052,7 @@ def _contract_form_context(form, title, is_create, account=None):
     }
 
 
+@require_write
 def contract_create(request):
     if request.GET.get("calculate") == "1":
         try:
@@ -1172,6 +1193,7 @@ def contract_summary(request, id):
     return render(request, "core/contract_summary.html", context)
 
 
+@require_write
 def contract_edit(request, id):
     if request.GET.get("calculate") == "1":
         try:
@@ -1240,6 +1262,7 @@ def contract_edit(request, id):
     return render(request, "core/contracts_form.html", _contract_form_context(form, "تعديل عقد", False, request.current_account))
 
 
+@require_write
 def contract_mark_completed(request, id):
     contract = get_object_or_404(Contract, id=id, account=request.current_account)
     if request.method == "POST":
@@ -1267,6 +1290,7 @@ def contract_mark_completed(request, id):
     return redirect("core:contract_detail", id=contract.id)
 
 
+@require_write
 def contract_delete(request, id):
     contract = get_object_or_404(Contract.objects.select_related("customer"), id=id, account=request.current_account)
     if request.method == "POST":
@@ -1304,6 +1328,7 @@ def installment_list(request):
     return render(request, "core/installments_list.html", {"installments": installments, "status": status, "date_from": date_from, "date_to": date_to})
 
 
+@require_write
 def installment_pay(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
     previous_paid = installment.paid_amount
@@ -1429,6 +1454,7 @@ def _get_whatsapp_url(installment, message_type):
     return base_url + urllib.parse.quote(msg)
 
 
+@require_write
 def installment_reset_payment(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
     if request.method == "POST":
@@ -1461,11 +1487,13 @@ def installment_reset_payment(request, id):
     return redirect("core:contract_detail", id=installment.contract_id)
 
 
+@require_write
 def installment_due_today(request):
     installments = Installment.objects.filter(account=request.current_account).select_related("contract", "contract__customer").filter(due_date=_today()).exclude(status=Installment.STATUS_PAID)
     return render(request, "core/installments_list.html", {"installments": installments, "title": "أقساط اليوم"})
 
 
+@require_write
 def installment_overdue(request):
     _mark_late_installments()
     installments = Installment.objects.filter(account=request.current_account).select_related("contract", "contract__customer").filter(status=Installment.STATUS_LATE)
@@ -1479,18 +1507,21 @@ def reports_dashboard(request):
     return render(request, "core/reports_index.html", {"contracts_count": contracts.count(), "total_invested": _sum(contracts, "actual_cost"), "total_collected": _sum(installments, "paid_amount"), "total_expenses": _sum(expenses, "amount"), "total_profit": sum((_contract_profit(c) for c in contracts), MONEY_ZERO)})
 
 
+@require_write
 def profit_report(request):
     contracts = list(_contract_report_queryset(request.current_account))
     rows = [{"contract": contract, "profit": _contract_profit(contract)} for contract in contracts]
     return render(request, "core/reports_profit.html", {"rows": rows, "total_profit": sum((r["profit"] for r in rows), MONEY_ZERO)})
 
 
+@require_write
 def profit_report_pdf(request):
     contracts = list(_contract_report_queryset(request.current_account))
     rows = [{"contract": contract, "profit": _contract_profit(contract)} for contract in contracts]
     return _pdf_response("core/reports_profit_pdf.html", {"request": request, "rows": rows, "total_profit": sum((r["profit"] for r in rows), MONEY_ZERO)}, "profit-report.pdf")
 
 
+@require_write
 def customer_statement(request, id):
     customer = get_object_or_404(Customer, id=id, account=request.current_account)
     contracts = Contract.objects.filter(customer=customer, account=request.current_account).order_by("-created_at")
@@ -1498,22 +1529,26 @@ def customer_statement(request, id):
     return render(request, "core/reports_customer_statement.html", {"customer": customer, "contracts": contracts, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _remaining_installments_total(installments)})
 
 
+@require_write
 def customer_statement_pdf(request, id):
     customer = get_object_or_404(Customer, id=id, account=request.current_account)
     installments = Installment.objects.filter(contract__customer=customer, account=request.current_account).select_related("contract").order_by("due_date")
     return _pdf_response("core/reports_customer_statement_pdf.html", {"request": request, "customer": customer, "installments": installments, "total_paid": _sum(installments, "paid_amount"), "total_remaining": _remaining_installments_total(installments)}, f"customer-{customer.id}-statement.pdf")
 
 
+@require_write
 def investment_report(request):
     contracts = Contract.objects.filter(account=request.current_account).select_related("customer").order_by("-created_at")
     return render(request, "core/reports_investment.html", {"contracts": contracts, "total_invested": _sum(contracts, "actual_cost"), "total_customer_price": _sum(contracts, "customer_price"), "total_collected": _sum(Installment.objects.filter(account=request.current_account), "paid_amount")})
 
 
+@require_write
 def suppliers_report(request):
     suppliers = Supplier.objects.filter(account=request.current_account).annotate(total_spent=Sum("supplierpurchase__purchase_price", default=MONEY_ZERO)).order_by("-total_spent")
     return render(request, "core/reports_suppliers.html", {"suppliers": suppliers, "total_spent": _sum(SupplierPurchase.objects.filter(account=request.current_account), "purchase_price")})
 
 
+@require_write
 def monthly_report(request):
     payments = (
         Installment.objects.filter(account=request.current_account, paid_date__isnull=False)
@@ -1531,11 +1566,13 @@ def monthly_report(request):
     return render(request, "core/reports_monthly.html", {"rows": rows})
 
 
+@require_write
 def notification_list(request):
     notifications = Notification.objects.filter(account=request.current_account).select_related("contract", "installment").order_by("-created_at")
     return render(request, "core/notifications.html", {"notifications": notifications})
 
 
+@require_write
 def notification_read(request, id):
     notification = get_object_or_404(Notification, id=id, account=request.current_account)
     if request.method == "POST":
@@ -1545,6 +1582,7 @@ def notification_read(request, id):
     return redirect("core:notification_list")
 
 
+@require_write
 def notification_check_due(request):
     if request.method == "POST":
         _mark_late_installments()
@@ -1560,6 +1598,7 @@ def notification_check_due(request):
     return redirect("core:notification_list")
 
 
+@require_write
 def search(request):
     query = request.GET.get("q", "").strip()
     customers = []
@@ -1570,11 +1609,13 @@ def search(request):
     return render(request, "core/search_results.html", {"customers": customers, "contracts": contracts, "query": query})
 
 
+@require_write
 def expense_list(request):
     expenses = Expense.objects.filter(account=request.current_account).order_by("-expense_date")
     return render(request, "core/expenses_list.html", {"expenses": expenses, "total": _sum(expenses, "amount")})
 
 
+@require_write
 def expense_create(request):
     form = ExpenseForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -1597,6 +1638,7 @@ def expense_create(request):
     return render(request, "core/expenses_form.html", {"form": form, "title": "إضافة مصروف"})
 
 
+@require_write
 def expense_edit(request, id):
     expense = get_object_or_404(Expense, id=id, account=request.current_account)
     old_values = {"title": expense.title, "amount": str(expense.amount)}
@@ -1621,6 +1663,7 @@ def expense_edit(request, id):
     return render(request, "core/expenses_form.html", {"form": form, "title": "تعديل مصروف"})
 
 
+@require_write
 def expense_delete(request, id):
     expense = get_object_or_404(Expense, id=id, account=request.current_account)
     if request.method == "POST":
@@ -1639,6 +1682,7 @@ def expense_delete(request, id):
 
 
 @require_POST
+@require_write
 def account_create(request):
     name = request.POST.get("name", "").strip()
     if name:
@@ -1656,6 +1700,7 @@ def account_switch(request, account_id):
 
 
 @require_POST
+@require_write
 def product_type_create(request):
     name = request.POST.get("name", "").strip()
     if name:
@@ -1665,6 +1710,7 @@ def product_type_create(request):
 
 
 @require_POST
+@require_write
 def product_type_delete(request, id):
     pt = get_object_or_404(ProductType, id=id, account=request.current_account)
     name = pt.name
@@ -1673,6 +1719,7 @@ def product_type_delete(request, id):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
+@require_write
 def settings_view(request):
     instance = _settings()
     form = SettingsForm(request.POST or None, instance=instance)
@@ -1687,6 +1734,7 @@ def settings_view(request):
     return render(request, "core/settings.html", {"form": form, "backups": backups, "product_types": product_types})
 
 
+@require_write
 def backup_create_view(request):
     if request.method == "POST":
         from .backup_utils import create_backup
@@ -1709,6 +1757,7 @@ def backup_download_view(request, filename):
     return FileResponse(open(filepath, "rb"), as_attachment=True, filename=filename)
 
 
+@require_write
 def backup_delete_view(request, filename):
     if request.method == "POST":
         from .backup_utils import delete_backup
@@ -1720,6 +1769,7 @@ def backup_delete_view(request, filename):
     return redirect("core:settings")
 
 
+@require_write
 def backup_restore_view(request, filename):
     if request.method == "POST":
         from .backup_utils import restore_backup
@@ -1760,6 +1810,7 @@ def _log_activity(
         pass
 
 
+@require_write
 def activity_log_list(request):
     logs = ActivityLog.objects.filter(account=request.current_account)[:500]
     action_filter = request.GET.get("action", "")
@@ -1780,6 +1831,7 @@ def activity_log_list(request):
     return render(request, "core/activity_log.html", context)
 
 
+@require_write
 def receiver_list(request):
     receivers = Receiver.objects.filter(
         account=request.current_account
@@ -1790,6 +1842,7 @@ def receiver_list(request):
     return render(request, "core/receivers/receiver_list.html", {"receivers": receivers})
 
 
+@require_write
 def receiver_detail(request, pk):
     receiver = get_object_or_404(Receiver, pk=pk, account=request.current_account)
     installments = receiver.installments.select_related(
@@ -1803,6 +1856,7 @@ def receiver_detail(request, pk):
     })
 
 
+@require_write
 def receiver_create(request):
     if request.method == "POST":
         name = request.POST.get("name", "").strip()

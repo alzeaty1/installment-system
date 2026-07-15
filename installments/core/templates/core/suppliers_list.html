@@ -1,7 +1,7 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}التجار{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>التجار</h2><a class="btn btn-primary" href="{% url 'core:supplier_create' %}">إضافة تاجر</a></div>
+<div class="d-flex justify-content-between align-items-center mb-3"><h2>التجار</h2>{% if not is_viewer %}<a class="btn btn-primary" href="{% url 'core:supplier_create' %}">إضافة تاجر</a>{% endif %}</div>
 <form class="row g-2 mb-3"><div class="col-md-10"><input class="form-control" name="q" value="{{ query }}" placeholder="بحث بالاسم أو الهاتف"></div><div class="col-md-2"><button class="btn btn-outline-primary w-100">بحث</button></div></form>
 <div class="card stat"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>الاسم</th><th>الهاتف</th><th>الفئة</th><th></th></tr></thead><tbody>{% for supplier in suppliers %}<tr><td>{{ supplier.name }}</td><td>{{ supplier.phone }}</td><td>{{ supplier.category|default:'-' }}</td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'core:supplier_detail' supplier.id %}">عرض</a></td></tr>{% empty %}<tr><td colspan="4">لا يوجد تجار.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}
