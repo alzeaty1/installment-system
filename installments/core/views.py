@@ -1721,7 +1721,11 @@ def search(request):
     contracts = []
     if query:
         customers = Customer.objects.filter(account=request.current_account).filter(Q(name__icontains=query) | Q(phone__icontains=query))
-        contracts = Contract.objects.filter(account=request.current_account).filter(Q(contract_number__icontains=query) | Q(product_name__icontains=query))
+        contracts = Contract.objects.filter(account=request.current_account).filter(
+            Q(contract_number__icontains=query)
+            | Q(product_name__icontains=query)
+            | Q(customer__name__icontains=query)
+        ).select_related("customer", "product")
     return render(request, "core/search_results.html", {"customers": customers, "contracts": contracts, "query": query})
 
 
