@@ -1,0 +1,10 @@
+{% extends 'core/base.html' %}
+{% block title %}خطأ في الخدمة{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <div style="font-size:5rem;" class="mb-3">⚠️</div>
+  <h1 class="display-6 fw-bold mb-2">500 — حدث خطأ غير متوقع</h1>
+  <p class="text-muted mb-4">حصلت مشكلة أثناء تنفيذ الطلب. جرّب تاني، ولو استمرت المشكلة راجع مسؤول النظام.</p>
+  <a href="{% url 'core:dashboard' %}" class="btn btn-primary">لوحة التحكم</a>
+</div>
+{% endblock %}

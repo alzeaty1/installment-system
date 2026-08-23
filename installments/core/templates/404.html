@@ -1,0 +1,14 @@
+{% extends 'core/base.html' %}
+{% block title %}السجل غير موجود{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <div style="font-size:5rem;" class="mb-3">🔍</div>
+  <h1 class="display-6 fw-bold mb-2">404 — السجل غير موجود</h1>
+  <p class="text-muted mb-4">الصفحة أو السجل اللي بتدور عليه غير موجود، أو ممكن يكون اتحذف، أو تابع لحساب تاني.</p>
+  <div class="d-flex gap-2 justify-content-center">
+    <a href="{% url 'core:dashboard' %}" class="btn btn-primary">لوحة التحكم</a>
+    <a href="{% url 'core:contract_list' %}" class="btn btn-outline-secondary">العقود</a>
+    <a href="{% url 'core:customer_list' %}" class="btn btn-outline-secondary">العملاء</a>
+  </div>
+</div>
+{% endblock %}
