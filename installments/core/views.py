@@ -914,7 +914,17 @@ def dashboard(request):
 
 def customer_list(request):
     query = request.GET.get("q", "").strip()
-    customers = Customer.objects.filter(account=request.current_account).annotate(contracts_count=Count("contract")).order_by("-created_at")
+    customers = (
+        Customer.objects.filter(account=request.current_account)
+        .annotate(
+            contracts_count=Count("contract"),
+            open_contracts_count=Count(
+                "contract",
+                filter=~Q(contract__status__in=[Contract.STATUS_COMPLETED, Contract.STATUS_EARLY_COMPLETED]),
+            ),
+        )
+        .order_by("-created_at")
+    )
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
     paginator = Paginator(customers, 25)
@@ -1536,70 +1546,128 @@ def installment_list(request):
     return render(request, "core/installments_list.html", {"installments": page, "status": status, "date_from": date_from, "date_to": date_to})
 
 
+def _apply_payment(contract, amount, pay_date, payment_method="", receiver=None, received_by="", sender_account="", sender_name="", transfer_image=None, notes=""):
+    """وزّع مبلغ الدفعة على أقساط العقد بالترتيب: الناقص أولًا ثم المعلق/المتأخر.
+
+    يرجع (applied_list, last_installment) — applied_list = [(installment, applied_amount)]
+    يرفض المبلغ إذا كان أكبر من إجمالي المتبقي على العقد.
+    """
+    remaining_due = contract.total_amount - contract.total_paid
+    if amount > remaining_due:
+        raise ValueError(f"المبلغ أكبر من إجمالي المتبقي على العقد ({remaining_due} جنيه).")
+
+    applied = []
+    last_inst = None
+    left = amount
+    for inst in contract.installments.order_by("installment_number"):
+        if left <= 0:
+            break
+        shortfall = inst.amount - inst.paid_amount
+        if shortfall <= 0:
+            continue  # مدفوع/معفي
+        take = min(shortfall, left)
+        inst.paid_amount += take
+        inst.paid_date = pay_date
+        if payment_method:
+            inst.payment_method = payment_method
+        if receiver is not None:
+            inst.receiver = receiver
+        if received_by:
+            inst.received_by = received_by
+        if sender_account:
+            inst.transfer_sender_account = sender_account
+        if sender_name:
+            inst.transfer_sender_name = sender_name
+        if transfer_image is not None:
+            inst.transfer_image = transfer_image
+        if notes:
+            inst.notes = notes
+
+        if inst.paid_amount >= inst.amount:
+            inst.status = Installment.STATUS_PAID
+        else:
+            inst.status = Installment.STATUS_PARTIAL
+        inst.save()
+        applied.append((inst, take))
+        last_inst = inst
+        left -= take
+
+    _refresh_contract_status(contract)
+    return applied, last_inst
+
+
 @require_write
 def installment_pay(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
-    if installment.contract.status == Contract.STATUS_EARLY_COMPLETED:
+    contract = installment.contract
+    if contract.status == Contract.STATUS_EARLY_COMPLETED:
         messages.error(request, "العقد مغلق مبكرًا — لا يمكن تسجيل دفعات عليه.")
-        return redirect("core:contract_detail", id=installment.contract_id)
-    previous_paid = installment.paid_amount
+        return redirect("core:contract_detail", id=contract.id)
     initial = {"paid_amount": installment.amount - installment.paid_amount, "paid_date": _today(), "payment_method": Installment.PAYMENT_CASH}
     form = InstallmentPaymentForm(request.POST or None, request.FILES or None, instance=installment, initial=initial)
-    
+
     # Receivers for combobox
     receivers = Receiver.objects.filter(account=request.current_account, is_active=True)
     last_receiver_id = request.session.get("last_receiver_id")
-    
+
     if request.method == "POST" and form.is_valid():
         payment_amount = form.cleaned_data["paid_amount"]
-        installment = form.save(commit=False)
-        installment.paid_amount = previous_paid + payment_amount
-        
-        # Save receiver
+        pay_date = form.cleaned_data["paid_date"]
+        method = form.cleaned_data.get("payment_method") or ""
+
         receiver_id = request.POST.get("receiver")
+        receiver_obj = None
+        received_by = ""
         if receiver_id:
             try:
-                installment.receiver_id = int(receiver_id)
+                receiver_obj = Receiver.objects.get(id=int(receiver_id), account=request.current_account)
                 request.session["last_receiver_id"] = int(receiver_id)
-                # Also populate received_by for backward compat
-                try:
-                    receiver = Receiver.objects.get(id=int(receiver_id), account=request.current_account)
-                    installment.received_by = receiver.name
-                except Receiver.DoesNotExist:
-                    pass
-            except (ValueError, TypeError):
-                pass
-        
-        if installment.paid_amount > installment.amount:
-            installment.status = Installment.STATUS_OVERPAID
-        elif installment.paid_amount >= installment.amount:
-            installment.status = Installment.STATUS_PAID
-        elif installment.paid_amount > 0:
-            installment.status = Installment.STATUS_PARTIAL
-        else:
-            installment.status = Installment.STATUS_PENDING
-        installment.save()
-        if not installment.contract.installments.exclude(status=Installment.STATUS_PAID).exists():
-            installment.contract.status = Contract.STATUS_COMPLETED
-            installment.contract.save(update_fields=["status"])
-        
+                received_by = receiver_obj.name
+            except (ValueError, TypeError, Receiver.DoesNotExist):
+                receiver_obj = None
+
+        try:
+            applied, last_inst = _apply_payment(
+                contract,
+                Decimal(str(payment_amount)),
+                pay_date,
+                payment_method=method,
+                receiver=receiver_obj,
+                received_by=received_by,
+                sender_account=form.cleaned_data.get("transfer_sender_account", ""),
+                sender_name=form.cleaned_data.get("transfer_sender_name", ""),
+                transfer_image=form.cleaned_data.get("transfer_image"),
+                notes=form.cleaned_data.get("notes", ""),
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("core:installment_pay", id=installment.id)
+
+        touched_numbers = ", ".join(f"#{i.installment_number}" for i, _ in applied)
         _log_activity(
             request,
             action=ActivityLog.ACTION_PAYMENT,
             model_name="Installment",
-            obj=installment,
-            description=f"تسجيل دفع مبلغ {payment_amount} جنيه للقسط رقم {installment.installment_number} في العقد {installment.contract.contract_number} للعميل {installment.contract.customer.name}",
-            previous_value={"paid_amount": str(previous_paid)},
-            new_value={"paid_amount": str(installment.paid_amount)}
+            obj=last_inst or installment,
+            description=f"تسجيل دفع {payment_amount} جنيه على العقد {contract.contract_number} للعميل {contract.customer.name} — وزّع على الأقساط: {touched_numbers}",
+            previous_value={"total_paid": str(contract.total_paid - payment_amount)},
+            new_value={"total_paid": str(contract.total_paid)},
         )
 
-        messages.success(request, "تم تسجيل الدفع. يمكنك طباعة الإيصال أدناه.")
-        return redirect("core:installment_receipt", id=installment.id)
+        # إقفال تلقائي عند اكتمال قيمة العقد
+        if contract.status != Contract.STATUS_EARLY_COMPLETED and contract.total_paid >= contract.total_amount:
+            contract.status = Contract.STATUS_COMPLETED
+            contract.save(update_fields=["status"])
+            messages.success(request, f"🎉 تم سداد كامل قيمة العقد ({contract.total_amount} جنيه) — العقد اتقفل. يمكنك طباعة الإيصال أدناه.")
+        else:
+            messages.success(request, "تم تسجيل الدفع وتوزيعه على الأقساط. يمكنك طباعة الإيصال أدناه.")
+        return redirect("core:installment_receipt", id=(last_inst or installment).id)
     return render(request, "core/installments_pay.html", {
         "form": form,
         "installment": installment,
         "receivers": receivers,
         "last_receiver_id": last_receiver_id,
+        "remaining_total": max(contract.total_amount - contract.total_paid, MONEY_ZERO),
     })
 
 

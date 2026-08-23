@@ -37,14 +37,32 @@
           {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         </div>
         {% endfor %}
-        <div class="col-12"><button class="btn btn-primary"><i class="bi bi-credit-card ms-1"></i>تأكيد الدفع</button></div>
+        <div class="col-12"><button class="btn btn-primary" id="paySubmitBtn"><i class="bi bi-credit-card ms-1"></i>تأكيد الدفع</button></div>
       </form>
     </div></div>
   </div>
 </div>
-{% endblock %}
 
 {% block extra_js %}
+<script>
+(function() {
+  var remainingTotal = {{ remaining_total|floatformat:"2" }};
+  var btn = document.getElementById('paySubmitBtn');
+  if (!btn) return;
+  var form = btn.closest('form');
+  form.addEventListener('submit', function(e) {
+    var amountInput = document.querySelector('[name="paid_amount"]');
+    if (!amountInput) return;
+    var amount = parseFloat(amountInput.value || '0');
+    if (amount >= remainingTotal && remainingTotal > 0) {
+      if (!confirm('⚠️ الدفعة دي (' + amount + ') هتكمل قيمة العقد كاملة (' + remainingTotal + ' متبقي) — العقد هيقفل تلقائيًا. متابعة؟')) {
+        e.preventDefault();
+      }
+    }
+  });
+})();
+</script>
+
 <script>
 (function() {
   // الحقول اللي هنتحكم فيها
