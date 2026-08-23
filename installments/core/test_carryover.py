@@ -128,3 +128,37 @@ class InstallmentReceiptCarryoverTests(TestCase):
         self.assertEqual(r.status_code, 200)
         # carryover = previous_paid - previous_expected = 700 - 500 = 200 (positive = customer credit)
         self.assertContains(r, "200")
+
+    def test_receipt_remaining_balance_is_historical_per_installment(self):
+        """Each receipt should show the contract balance after that installment, not the current live balance."""
+        self.contract.total_amount = Decimal("1000.00")
+        self.contract.save(update_fields=["total_amount"])
+
+        inst1 = Installment.objects.create(
+            contract=self.contract,
+            installment_number=1,
+            due_date=date(2026, 7, 1),
+            amount=Decimal("500.00"),
+            paid_amount=Decimal("500.00"),
+            paid_date=date(2026, 7, 1),
+            status=Installment.STATUS_PAID,
+            account=self.account,
+        )
+        inst2 = Installment.objects.create(
+            contract=self.contract,
+            installment_number=2,
+            due_date=date(2026, 8, 1),
+            amount=Decimal("500.00"),
+            paid_amount=Decimal("300.00"),
+            paid_date=date(2026, 8, 1),
+            status=Installment.STATUS_PARTIAL,
+            account=self.account,
+        )
+
+        r1 = self.client.get(reverse("core:installment_receipt", args=[inst1.id]))
+        r2 = self.client.get(reverse("core:installment_receipt", args=[inst2.id]))
+
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r1.context["remaining_balance"], Decimal("500.00"))
+        self.assertEqual(r2.context["remaining_balance"], Decimal("200.00"))

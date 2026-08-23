@@ -21,7 +21,7 @@
 <div class="table-responsive">
   <table class="table">
     <thead><tr><th>رقم العقد</th><th>العميل</th><th>المنتج</th></tr></thead>
-    <tbody>{% for c in contracts %}<tr><td><a href="{% url 'core:contract_detail' c.id %}">{{ c.contract_number }}</a></td><td>{{ c.customer.name }}</td><td>{{ c.product_name }}</td></tr>{% endfor %}</tbody>
+    <tbody>{% for c in contracts %}<tr><td><a href="{% url 'core:contract_detail' c.id %}">{{ c.contract_number }}</a></td><td>{{ c.customer.name }}</td><td>{% if c.product %}{{ c.product.full_name }}{% else %}{{ c.product_name }}{% endif %}</td></tr>{% endfor %}</tbody>
   </table>
 </div>
 {% else %}

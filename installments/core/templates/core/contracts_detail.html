@@ -27,7 +27,7 @@
           <div class="text-muted small">لا توجد صورة للمنتج.</div>
         {% endif %}
       </div>
-      <div class="col-md-3"><p>المنتج: {{ contract.product_name }}</p><p>سعر الشراء: <span class="money">{{  contract.actual_cost|mask_money }}</span></p><p>السعر للعميل: <span class="money">{{  contract.customer_price|mask_money }}</span></p></div>
+      <div class="col-md-3"><p>المنتج: {% if contract.product %}{{ contract.product.full_name }}{% else %}{{ contract.product_name }}{% endif %}</p><p>سعر الشراء: <span class="money">{{  contract.actual_cost|mask_money }}</span></p><p>السعر للعميل: <span class="money">{{  contract.customer_price|mask_money }}</span></p></div>
       <div class="col-md-3"><p>المقدم: <span class="money">{{  contract.down_payment|mask_money }}</span></p><p>المتبقي: <span class="money">{{  contract.remaining_amount|mask_money }}</span></p><p>الفائدة: <span class="money">{{  contract.total_interest|mask_money }}</span></p></div>
       <div class="col-md-3"><p>النسبة: {{ contract.interest_rate|floatformat:2 }}%</p><p>عدد الشهور: {{ contract.months_count }}</p><p>القسط: <span class="money">{{  contract.installment_amount|mask_money }}</span></p></div>
     </div>
@@ -57,7 +57,7 @@
     </div>
     <div class="table-responsive">
       <table class="table">
-        <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>الحالة</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي بعد القسط</th><th>الحالة</th><th></th></tr></thead>
         <tbody>
           {% for installment in installments %}
             <tr>
@@ -65,6 +65,7 @@
               <td>{{ installment.due_date }}</td>
               <td class="money">{{  installment.amount|mask_money }}</td>
               <td class="money">{{  installment.paid_amount|mask_money }}</td>
+              <td class="money text-danger fw-bold">{{ installment.remaining_after_this|mask_money }}</td>
               <td>{{ installment.get_status_display }}</td>
               <td>
                 <div class="btn-group">
@@ -79,15 +80,12 @@
                     {% if installment.status == 'late' %}
                       <a href="{{ installment.whatsapp_overdue }}" target="_blank" class="btn btn-sm btn-outline-danger" title="تأخير"><i class="bi bi-whatsapp"></i> تأ</a>
                     {% endif %}
-                    {% if installment.paid_amount > 0 %}
-                      <a href="{{ installment.whatsapp_payment }}" target="_blank" class="btn btn-sm btn-outline-success" title="تأكيد دفع"><i class="bi bi-whatsapp"></i> د</a>
-                    {% endif %}
                   </div>
                 </div>
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="6">لا توجد أقساط.</td></tr>
+            <tr><td colspan="7">لا توجد أقساط.</td></tr>
           {% endfor %}
         </tbody>
       </table>

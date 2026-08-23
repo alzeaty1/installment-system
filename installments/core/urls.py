@@ -71,6 +71,17 @@ urlpatterns = [
         views.installment_overdue,
         name="installment_overdue",
     ),
+    path("reports/overdue/", views.overdue_report, name="overdue_report"),
+    path(
+        "reports/overdue/export/",
+        views.overdue_export_edit,
+        name="overdue_export_edit",
+    ),
+    path(
+        "monthly-income/<int:id>/edit/",
+        views.monthly_income_edit,
+        name="monthly_income_edit",
+    ),
     path("reports/", views.reports_dashboard, name="reports_dashboard"),
     path("reports/profit/", views.profit_report, name="profit_report"),
     path("reports/profit/pdf/", views.profit_report_pdf, name="profit_report_pdf"),

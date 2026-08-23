@@ -3,7 +3,7 @@ import time
 import logging
 
 from .backup_utils import create_backup
-from .models import Account
+from .models import Account, Contract, Customer, Supplier
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +51,41 @@ class AccountMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    def _default_account(self):
+        """Pick the real working account instead of an empty/test account."""
+        accounts = list(Account.objects.order_by("id"))
+        if not accounts:
+            return Account.objects.create(name="الحساب الرئيسي")
+
+        def score(account):
+            return (
+                Contract.objects.filter(account=account).count()
+                + Customer.objects.filter(account=account).count()
+                + Supplier.objects.filter(account=account).count()
+            )
+
+        return max(accounts, key=lambda account: (score(account), -account.id))
+
+    def _is_empty_account(self, account):
+        return not (
+            Contract.objects.filter(account=account).exists()
+            or Customer.objects.filter(account=account).exists()
+            or Supplier.objects.filter(account=account).exists()
+        )
+
     def __call__(self, request):
         if request.user.is_authenticated:
             account_id = request.session.get("account_id")
-            if not account_id:
-                account = Account.objects.first()
-                if not account:
-                    account = Account.objects.create(name="الحساب الرئيسي")
+            default_account = self._default_account()
+            account = Account.objects.filter(id=account_id).first() if account_id else None
+
+            # Existing sessions may point to an old empty test account. Prefer the
+            # account that actually has data so links like /suppliers/<id>/ work.
+            if account is None or (self._is_empty_account(account) and default_account.id != account.id):
+                account = default_account
                 request.session["account_id"] = account.id
-                account_id = account.id
-            request.current_account = Account.objects.get(id=account_id)
+
+            request.current_account = account
         else:
             request.current_account = None
         return self.get_response(request)

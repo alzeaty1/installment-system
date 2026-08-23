@@ -32,7 +32,7 @@
         <p class="text-muted mb-0">عقد {{ contract.contract_number }}</p>
       </div>
       <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4"><div class="text-muted small">المنتج</div><div class="fw-bold">{{ contract.product_name }}</div></div>
+        <div class="col-6 col-md-4"><div class="text-muted small">المنتج</div><div class="fw-bold">{% if contract.product %}{{ contract.product.full_name }}{% else %}{{ contract.product_name }}{% endif %}</div></div>
         <div class="col-6 col-md-4"><div class="text-muted small">سعر المنتج</div><div class="fw-bold money">{{  contract.customer_price|mask_money }}</div></div>
         {% if contract.down_payment %}<div class="col-6 col-md-4"><div class="text-muted small">المقدم</div><div class="fw-bold money">{{  contract.down_payment|mask_money }}</div></div>{% endif %}
         <div class="col-6 col-md-4"><div class="text-muted small">النسبة</div><div class="fw-bold">{{ contract.interest_rate|floatformat:1 }}%</div></div>

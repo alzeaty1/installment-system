@@ -159,6 +159,13 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def full_name(self):
+        """Full display name: name plus model when present (e.g. 'شاومي - C85')."""
+        if self.model_name:
+            return f"{self.name} - {self.model_name}"
+        return self.name
+
 
 class SupplierPurchase(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
@@ -566,6 +573,49 @@ class Settings(models.Model):
 
     def __str__(self):
         return self.business_name
+
+
+class MonthlyIncome(models.Model):
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب"
+    )
+    year = models.IntegerField(verbose_name="السنة")
+    month = models.IntegerField(verbose_name="الشهر")
+    expected_monthly_income = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=MONEY_VALIDATORS,
+        verbose_name="الدخل المتوقع الشهري",
+    )
+    collected_amount_override = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=MONEY_VALIDATORS,
+        verbose_name="تعديل المحصل يدويًا",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ الإنشاء")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="تاريخ التعديل")
+
+    class Meta:
+        verbose_name = "الدخل الشهري"
+        verbose_name_plural = "الدخل الشهري"
+        unique_together = ("account", "year", "month")
+        ordering = ["-year", "-month"]
+
+    def __str__(self):
+        return f"{self.year}/{self.month} - متوقع: {self.expected_monthly_income}"
+
+    @property
+    def is_override(self):
+        return self.collected_amount_override is not None
+
+    def get_collected_amount(self, auto_sum):
+        if self.collected_amount_override is not None:
+            return self.collected_amount_override
+        return auto_sum
 
 
 class ActivityLog(models.Model):

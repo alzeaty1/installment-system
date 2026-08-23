@@ -26,13 +26,63 @@
   <div class="col-md-7">
     <div class="card stat"><div class="card-body">
       <h5 class="card-title">تسديد</h5>
-      <form method="post" class="row g-3">
+      <form method="post" enctype="multipart/form-data" class="row g-3">
         {% csrf_token %}
         {{ form.media }}
-        {% for field in form %}<div class="col-12">{% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}<label class="form-label">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endfor %}
+        {% for field in form %}
+        <div class="col-12 pay-field" data-field="{{ field.name }}">
+          {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        </div>
+        {% endfor %}
         <div class="col-12"><button class="btn btn-primary"><i class="bi bi-credit-card ms-1"></i>تأكيد الدفع</button></div>
       </form>
     </div></div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  // الحقول اللي هنتحكم فيها
+  const DYNAMIC_FIELDS = ['transfer_sender_account', 'transfer_sender_name', 'transfer_image', 'received_by'];
+  
+  // كل payment method و الحقول اللي تظهر معاه
+  const FIELD_MAP = {
+    'cash': ['received_by'],
+    'wallet': ['transfer_sender_account', 'transfer_sender_name', 'transfer_image'],
+    'instapay': ['transfer_sender_account', 'transfer_sender_name', 'transfer_image'],
+  };
+
+  function getFieldEl(name) {
+    return document.querySelector(`.pay-field[data-field="${name}"]`);
+  }
+
+  function updateFields(method) {
+    const showFields = FIELD_MAP[method] || [];
+    DYNAMIC_FIELDS.forEach(function(name) {
+      var el = getFieldEl(name);
+      if (!el) return;
+      if (showFields.includes(name)) {
+        el.style.display = '';
+      } else {
+        el.style.display = 'none';
+      }
+    });
+  }
+
+  // input payment_method
+  var payMethod = document.querySelector('[name="payment_method"]');
+  if (payMethod) {
+    payMethod.addEventListener('change', function() {
+      updateFields(this.value);
+    });
+    // run on page load
+    updateFields(payMethod.value);
+  }
+})();
+</script>
 {% endblock %}

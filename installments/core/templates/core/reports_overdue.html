@@ -1,0 +1,133 @@
+{% extends 'core/base.html' %}
+{% block title %}تقرير المتأخرات{% endblock %}
+{% block content %}
+<div class="page-heading mb-3">
+  <div>
+    <h2>تقرير المتأخرات</h2>
+    <p class="page-subtitle">تصفية الأقساط المتأخرة حسب المدة، النطاق الزمني، أو العميل.</p>
+  </div>
+  <a class="btn btn-outline-primary" href="{% url 'core:overdue_export_edit' %}?{{ request.GET.urlencode }}">
+    <i class="bi bi-pencil-square"></i> تجهيز نسخة للعميل
+  </a>
+</div>
+
+<!-- Filter form -->
+<div class="card stat border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label small">أكثر من (أيام)</label>
+        <input type="number" min="0" class="form-control form-control-sm" name="min_days_overdue" value="{{ filters.min_days_overdue }}" placeholder="مثال: 7">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">من تاريخ</label>
+        <input type="date" class="form-control form-control-sm" name="date_from" value="{{ filters.date_from }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">إلى تاريخ</label>
+        <input type="date" class="form-control form-control-sm" name="date_to" value="{{ filters.date_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small">العميل</label>
+        <select class="form-select form-select-sm" name="customer">
+          <option value="">— كل العملاء —</option>
+          {% for c in customers %}
+            <option value="{{ c.id }}" {% if filters.customer|add:'0' == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">ترتيب حسب</label>
+        <select class="form-select form-select-sm" name="sort">
+          <option value="-total_amount" {% if filters.sort == '-total_amount' %}selected{% endif %}>الإجمالي (الأعلى أولاً)</option>
+          <option value="total_amount" {% if filters.sort == 'total_amount' %}selected{% endif %}>الإجمالي (الأقل أولاً)</option>
+          <option value="-max_days_overdue" {% if filters.sort == '-max_days_overdue' %}selected{% endif %}>أيام التأخير (الأعلى أولاً)</option>
+        </select>
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> تصفية</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card stat border-0 shadow-sm"><div class="card-body d-flex align-items-center gap-3">
+      <i class="bi bi-exclamation-triangle fs-1 text-danger opacity-75"></i>
+      <div><div class="text-muted small">عدد العملاء المتأخرين</div><div class="h5 mb-0">{{ rows|length }}</div></div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat border-0 shadow-sm"><div class="card-body d-flex align-items-center gap-3">
+      <i class="bi bi-calendar-x fs-1 text-warning opacity-75"></i>
+      <div><div class="text-muted small">عدد الأقساط المتأخرة</div><div class="h5 mb-0">{{ total_installments }}</div></div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card stat border-0 shadow-sm"><div class="card-body d-flex align-items-center gap-3">
+      <i class="bi bi-cash-stack fs-1 text-danger opacity-75"></i>
+      <div><div class="text-muted small">إجمالي المتأخرات</div><div class="h5 mb-0 money">{{ grand_total|mask_money }}</div></div>
+    </div></div>
+  </div>
+</div>
+
+<!-- Report table -->
+<div class="card stat border-0 shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>العميل</th>
+            <th>عدد الأقساط</th>
+            <th>الإجمالي المتأخر</th>
+            <th>أيام التأخير (الأقصى)</th>
+            <th>يوم الاستحقاق</th>
+            <th>تفاصيل الأقساط</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'core:customer_detail' row.customer_id %}">{{ row.customer_name }}</a>
+            </td>
+            <td>{{ row.count }}</td>
+            <td class="money">{{ row.total_amount|mask_money }}</td>
+            <td>{{ row.max_days_overdue }}</td>
+            <td>اليوم {{ row.due_day }} من كل شهر</td>
+            <td>
+              <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#cust-{{ row.customer_id }}">
+                <i class="bi bi-list"></i> عرض ({{ row.count }})
+              </button>
+            </td>
+          </tr>
+          <tr class="collapse" id="cust-{{ row.customer_id }}">
+            <td colspan="6">
+              <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>العقد</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>أيام التأخير</th></tr></thead>
+                <tbody>
+                  {% for inst in row.installments %}
+                  <tr>
+                    <td>{{ inst.contract_number }}</td>
+                    <td>{{ inst.due_date|date:'Y-m-d' }}</td>
+                    <td class="money">{{ inst.amount|mask_money }}</td>
+                    <td class="money">{{ inst.paid_amount|mask_money }}</td>
+                    <td>{{ inst.days_overdue }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center text-muted">لا توجد أقساط متأخرة مطابقة للتصفية.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

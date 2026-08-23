@@ -5,6 +5,7 @@ from .models import (
     Customer,
     Expense,
     Installment,
+    MonthlyIncome,
     Notification,
     Product,
     ProductCategory,
@@ -165,3 +166,19 @@ class SettingsAdmin(admin.ModelAdmin):
         "whatsapp_enabled",
     )
     search_fields = ("business_name",)
+
+
+@admin.register(MonthlyIncome)
+class MonthlyIncomeAdmin(admin.ModelAdmin):
+    list_display = (
+        "account",
+        "year",
+        "month",
+        "expected_monthly_income",
+        "collected_amount_override",
+        "is_override",
+        "updated_at",
+    )
+    list_filter = ("year", "month", "account")
+    search_fields = ("account__name",)
+    ordering = ("-year", "-month")

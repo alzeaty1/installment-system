@@ -1,5 +1,6 @@
 import calendar
 import json
+from datetime import timedelta
 from decimal import Decimal
 
 from django import forms
@@ -23,6 +24,7 @@ from .models import (
     Expense,
     Installment,
     MAX_MONEY_AMOUNT,
+    MonthlyIncome,
     Notification,
     Product,
     ProductType,
@@ -76,9 +78,54 @@ def _remaining_installments_total(queryset):
     return max(total, MONEY_ZERO)
 
 
+def _receipt_remaining_balance(installment):
+    """Historical remaining balance for this receipt moment.
+
+    A receipt should reflect the contract balance *after this installment's payment*,
+    not the current live balance after later installments may have been paid.
+    """
+    paid_through_this_installment = (
+        installment.contract.installments.filter(
+            installment_number__lte=installment.installment_number
+        ).aggregate(total=Sum("paid_amount", default=MONEY_ZERO))["total"]
+        or MONEY_ZERO
+    )
+    return max((installment.contract.total_amount or MONEY_ZERO) - paid_through_this_installment, MONEY_ZERO)
+
+
 def _settings():
     settings, _created = Settings.objects.get_or_create(pk=1)
     return settings
+
+
+def _get_or_create_monthly_income(account, year, month):
+    """Return the MonthlyIncome row for the given (account, year, month), creating it if needed."""
+    obj, _created = MonthlyIncome.objects.get_or_create(
+        account=account, year=year, month=month,
+    )
+    return obj
+
+
+def _monthly_income_context(account, today):
+    """Compute the expected/collected monthly income pair for the dashboard.
+
+    Returns a dict with expected, collected, is_override flags for the current
+    month, used by the dashboard card.
+    """
+    income_row = _get_or_create_monthly_income(account, today.year, today.month)
+    auto_collected = (
+        Installment.objects
+        .filter(account=account, paid_date__year=today.year, paid_date__month=today.month)
+        .aggregate(total=Sum("paid_amount", default=MONEY_ZERO))["total"]
+    )
+    collected_display = income_row.get_collected_amount(auto_collected)
+    return {
+        "income_row": income_row,
+        "expected_monthly_income": income_row.expected_monthly_income,
+        "collected_amount_display": collected_display,
+        "collected_is_override": income_row.is_override,
+        "collected_auto": auto_collected,
+    }
 
 
 def _today():
@@ -526,23 +573,32 @@ def _apply_contract_form_entities(contract, cleaned_data, files=None):
     new_product_image = cleaned_data.get("new_product_image")
     files = files or {}
 
-    # --- Customer: lookup by name, create if new ---
+    # --- Customer: lookup by name within the current account, create if new ---
     if customer_name:
-        customer = Customer.objects.filter(name__iexact=customer_name).order_by("id").first()
+        customer = Customer.objects.filter(
+            account=contract.account,
+            name__iexact=customer_name,
+        ).order_by("id").first()
         if not customer:
             customer = Customer.objects.create(name=customer_name, phone="", account=contract.account)
         contract.customer = customer
 
-    # --- Supplier: lookup by name, create if new ---
+    # --- Supplier: lookup by name within the current account, create if new ---
     if supplier_name:
-        supplier = Supplier.objects.filter(name__iexact=supplier_name).order_by("id").first()
+        supplier = Supplier.objects.filter(
+            account=contract.account,
+            name__iexact=supplier_name,
+        ).order_by("id").first()
         if not supplier:
             supplier = Supplier.objects.create(name=supplier_name, phone="", account=contract.account)
         contract.supplier = supplier
 
-    # --- Product: lookup by name, create if new ---
+    # --- Product: lookup by name within the current account, create if new ---
     if product_name:
-        product = Product.objects.filter(name__iexact=product_name).order_by("id").first()
+        product = Product.objects.filter(
+            account=contract.account,
+            name__iexact=product_name,
+        ).order_by("id").first()
         product_type = cleaned_data.get("product_type")
         model_name = cleaned_data.get("model_name")
         if not product:
@@ -718,6 +774,9 @@ def dashboard(request):
         ).aggregate(total=Sum("paid_amount", default=MONEY_ZERO))["total"]
     )
 
+    # Expected vs Collected monthly income (Task 1)
+    income_ctx = _monthly_income_context(request.current_account, today)
+
     # New & completed contracts this month
     new_contracts_count = contracts.filter(
         created_at__year=today.year,
@@ -747,6 +806,41 @@ def dashboard(request):
     )
     total_profit = (profit_data["total_price"] - profit_data["total_cost"]) + profit_data["total_interest"]
 
+    # Recent payments should mean latest payment actions, not highest paid_date.
+    # A payment can be recorded with a future/old paid_date, so use ActivityLog.created_at.
+    recent_payment_logs = list(
+        ActivityLog.objects.filter(
+            account=request.current_account,
+            action=ActivityLog.ACTION_PAYMENT,
+            model_name="Installment",
+            object_id__isnull=False,
+        ).order_by("-created_at")[:20]
+    )
+    recent_payment_installment_ids = [log.object_id for log in recent_payment_logs]
+    recent_payment_installments = {
+        inst.id: inst for inst in Installment.objects.filter(
+            account=request.current_account,
+            id__in=recent_payment_installment_ids,
+        ).select_related("contract", "contract__customer")
+    }
+    recent_payments = []
+    for log in recent_payment_logs:
+        inst = recent_payment_installments.get(log.object_id)
+        if not inst:
+            continue
+        try:
+            payment_amount = Decimal(log.new_value.get("paid_amount", "0")) - Decimal(log.previous_value.get("paid_amount", "0"))
+        except Exception:
+            payment_amount = inst.paid_amount
+        recent_payments.append({
+            "contract_number": inst.contract.contract_number,
+            "customer_name": inst.contract.customer.name,
+            "amount": payment_amount,
+            "created_at": log.created_at,
+        })
+        if len(recent_payments) >= 5:
+            break
+
     status_qs = contracts.values("status").annotate(count=Count("id"))
 
     context = {
@@ -755,6 +849,11 @@ def dashboard(request):
         "overdue_count": overdue_count,
         "total_expected_today": total_expected_today,
         "income_this_month": income_this_month,
+        "expected_monthly_income": income_ctx["expected_monthly_income"],
+        "collected_amount_display": income_ctx["collected_amount_display"],
+        "collected_is_override": income_ctx["collected_is_override"],
+        "collected_auto": income_ctx["collected_auto"],
+        "monthly_income_id": income_ctx["income_row"].id,
         "new_contracts_count": new_contracts_count,
         "completed_count": completed_count,
         "expected_this_month": expected_this_month,
@@ -772,7 +871,7 @@ def dashboard(request):
         "total_customers": Customer.objects.filter(account=request.current_account).count(),
         "total_contracts": contracts.count(),
         "recent_contracts": contracts.select_related("customer").order_by("-created_at")[:5],
-        "recent_payments": installments.filter(status=Installment.STATUS_PAID).order_by("-paid_date")[:5],
+        "recent_payments": recent_payments,
         "get_whatsapp_url": _get_whatsapp_url,
         "chart_labels": json.dumps([item["month"].strftime("%Y-%m") for item in monthly]),
         "chart_values": json.dumps([float(item["total"]) for item in monthly]),
@@ -820,7 +919,12 @@ def customer_create(request):
 
 def customer_detail(request, id):
     customer = get_object_or_404(Customer, id=id, account=request.current_account)
-    contracts = Contract.objects.filter(customer=customer, account=request.current_account).order_by("-created_at")
+    contracts = (
+        Contract.objects
+        .filter(customer=customer, account=request.current_account)
+        .select_related("product")
+        .order_by("-created_at")
+    )
     installments = Installment.objects.filter(contract__customer=customer, account=request.current_account).select_related("contract").order_by("due_date")
     
     late_installments = list(installments.filter(status=Installment.STATUS_LATE))
@@ -905,7 +1009,10 @@ def supplier_list(request):
 def supplier_create(request):
     form = SupplierForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        supplier = form.save()
+        supplier = form.save(commit=False)
+        supplier.account = request.current_account
+        supplier.save()
+        form.save_m2m()
         messages.success(request, "تم حفظ التاجر.")
         return redirect("core:supplier_detail", id=supplier.id)
     category_suggestions = SupplierCategory.objects.order_by("name")
@@ -924,7 +1031,7 @@ def supplier_detail(request, id):
 
 @require_write
 def supplier_edit(request, id):
-    supplier = get_object_or_404(Supplier, id=id)
+    supplier = get_object_or_404(Supplier, id=id, account=request.current_account)
     form = SupplierForm(request.POST or None, instance=supplier)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -936,7 +1043,7 @@ def supplier_edit(request, id):
 
 @require_write
 def supplier_delete(request, id):
-    supplier = get_object_or_404(Supplier, id=id)
+    supplier = get_object_or_404(Supplier, id=id, account=request.current_account)
     if request.method == "POST":
         supplier.delete()
         messages.success(request, "تم حذف التاجر.")
@@ -1111,11 +1218,14 @@ def contract_detail(request, id):
     contract = get_object_or_404(Contract.objects.select_related("customer", "product"), id=id, account=request.current_account)
     installments = contract.installments.order_by("installment_number")
     
-    # إضافة روابط الواتساب للأقساط
+    # إضافة روابط الواتساب للأقساط + المتبقي التراكمي بعد كل قسط
+    running_paid = Decimal("0.00")
     for inst in installments:
         inst.whatsapp_reminder = _get_whatsapp_url(inst, "reminder")
         inst.whatsapp_overdue = _get_whatsapp_url(inst, "overdue")
         inst.whatsapp_payment = _get_whatsapp_url(inst, "payment")
+        running_paid += inst.paid_amount or MONEY_ZERO
+        inst.remaining_after_this = max((contract.total_amount or MONEY_ZERO) - running_paid, MONEY_ZERO)
     
     # حساب التقدم
     total_paid = _sum(installments, "paid_amount")
@@ -1400,7 +1510,7 @@ def installment_pay(request, id):
 
 def installment_receipt(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
-    remaining_balance = _remaining_installments_total(installment.contract.installments.all())
+    remaining_balance = _receipt_remaining_balance(installment)
     business_name = _settings().business_name
     
     # الشهر بالعربي
@@ -1738,6 +1848,143 @@ def settings_view(request):
     backups = list_backups() if request.user.is_staff else []
     product_types = ProductType.objects.filter(account=request.current_account).order_by("name")
     return render(request, "core/settings.html", {"form": form, "backups": backups, "product_types": product_types})
+
+
+@require_POST
+@require_write
+def monthly_income_edit(request, id):
+    """Update expected monthly income and/or the collected amount override (Task 1)."""
+    from django.utils import timezone
+    today = timezone.now().date()
+    income = get_object_or_404(MonthlyIncome, id=id, account=request.current_account)
+
+    expected_raw = request.POST.get("expected_monthly_income")
+    override_raw = request.POST.get("collected_amount_override")
+    reset_override = request.POST.get("reset_override") == "1"
+
+    try:
+        if expected_raw is not None and expected_raw.strip() != "":
+            income.expected_monthly_income = Decimal(expected_raw)
+        if reset_override:
+            income.collected_amount_override = None
+        elif override_raw is not None and override_raw.strip() != "":
+            income.collected_amount_override = Decimal(override_raw)
+    except Exception:
+        messages.error(request, "القيمة المدخلة غير صحيحة.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+    income.save()
+    messages.success(request, "تم تحديث الدخل الشهري.")
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+def _overdue_report_context(account, query_params):
+    """Build the filtered overdue rows shared by report and editable export views."""
+    today = _today()
+    qs = (
+        Installment.objects
+        .filter(account=account, status=Installment.STATUS_LATE)
+        .select_related("contract", "contract__customer")
+    )
+
+    min_days = query_params.get("min_days_overdue")
+    date_from = query_params.get("date_from")
+    date_to = query_params.get("date_to")
+    customer_id = query_params.get("customer")
+    sort = query_params.get("sort", "-total_amount")
+
+    if min_days:
+        try:
+            cutoff = today - timedelta(days=int(min_days))
+            qs = qs.filter(due_date__lte=cutoff)
+        except ValueError:
+            pass
+    if date_from:
+        qs = qs.filter(due_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(due_date__lte=date_to)
+    if customer_id:
+        qs = qs.filter(contract__customer_id=customer_id)
+
+    customers_map = {}
+    for inst in qs:
+        cid = inst.contract.customer_id
+        cname = inst.contract.customer.name
+        due_day = inst.contract.payment_due_day
+        if cid not in customers_map:
+            customers_map[cid] = {
+                "customer_id": cid,
+                "customer_name": cname,
+                "due_day": due_day,
+                "installments": [],
+                "total_amount": MONEY_ZERO,
+                "max_days_overdue": 0,
+                "count": 0,
+            }
+        row = customers_map[cid]
+        row["installments"].append({
+            "id": inst.id,
+            "amount": inst.amount,
+            "paid_amount": inst.paid_amount,
+            "due_date": inst.due_date,
+            "days_overdue": (today - inst.due_date).days,
+            "contract_number": inst.contract.contract_number,
+        })
+        row["total_amount"] += inst.amount - inst.paid_amount
+        row["count"] += 1
+        row["max_days_overdue"] = max(row["max_days_overdue"], (today - inst.due_date).days)
+
+    rows = list(customers_map.values())
+
+    if sort == "-max_days_overdue":
+        rows.sort(key=lambda r: r["max_days_overdue"], reverse=True)
+    elif sort == "total_amount":
+        rows.sort(key=lambda r: r["total_amount"])
+    elif sort == "-total_amount":
+        rows.sort(key=lambda r: r["total_amount"], reverse=True)
+    else:
+        rows.sort(key=lambda r: r["max_days_overdue"], reverse=True)
+
+    grand_total = sum((r["total_amount"] for r in rows), MONEY_ZERO)
+    total_installments = sum(r["count"] for r in rows)
+    customers = Customer.objects.filter(account=account).order_by("name")
+
+    return {
+        "rows": rows,
+        "grand_total": grand_total,
+        "total_installments": total_installments,
+        "customers": customers,
+        "filters": {
+            "min_days_overdue": min_days or "",
+            "date_from": date_from or "",
+            "date_to": date_to or "",
+            "customer": customer_id or "",
+            "sort": sort,
+        },
+        "today": today,
+    }
+
+
+@require_write
+def overdue_report(request):
+    """Filterable overdue installments report (Task 2)."""
+    _mark_late_installments()
+    return render(
+        request,
+        "core/reports_overdue.html",
+        _overdue_report_context(request.current_account, request.GET),
+    )
+
+
+@require_write
+def overdue_export_edit(request):
+    """Editable, display-only overdue sheet for customer-facing export/print."""
+    _mark_late_installments()
+    return render(
+        request,
+        "core/reports_overdue_export_edit.html",
+        _overdue_report_context(request.current_account, request.GET),
+    )
 
 
 @require_write
