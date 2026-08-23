@@ -65,10 +65,11 @@
           </tr>
           {% empty %}
           <tr><td colspan="6" class="text-center text-muted">لا توجد أقساط.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-{% endblock %}
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% with page_obj=installments %}{% include 'core/_pagination.html' %}{% endwith %}
+            </div>
+          </div>
+          {% endblock %}

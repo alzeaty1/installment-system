@@ -129,6 +129,32 @@
           <td class="text-muted">طريقة الدفع:</td>
           <td>{{ installment.get_payment_method_display|default:"نقدي" }}</td>
         </tr>
+        {% if installment.payment_method == 'cash' and installment.received_by %}
+        <tr>
+          <td class="text-muted">المستلم:</td>
+          <td>{{ installment.received_by }}</td>
+        </tr>
+        {% endif %}
+        {% if installment.payment_method == 'wallet' or installment.payment_method == 'instapay' %}
+          {% if installment.transfer_sender_name %}
+          <tr>
+            <td class="text-muted">اسم المرسل:</td>
+            <td>{{ installment.transfer_sender_name }}</td>
+          </tr>
+          {% endif %}
+          {% if installment.transfer_sender_account %}
+          <tr>
+            <td class="text-muted">رقم المحفظة/الحساب:</td>
+            <td dir="ltr">{{ installment.transfer_sender_account }}</td>
+          </tr>
+          {% endif %}
+        {% endif %}
+        {% if installment.notes %}
+        <tr>
+          <td class="text-muted">ملاحظات:</td>
+          <td>{{ installment.notes }}</td>
+        </tr>
+        {% endif %}
         <tr class="border-top">
           <td class="text-muted pt-2">إجمالي المتبقي:</td>
           <td class="pt-2"><span class="fw-bold text-danger">{{ remaining_balance|mask_money }}</span> جنيه</td>
@@ -152,4 +178,15 @@
     <p class="mb-0">شكراً لتعاملكم معنا. تم إنشاء هذا الإيصال تلقائياً بتاريخ {% now "Y-m-d H:i" %}</p>
   </div>
 </div>
+
+{% if installment.transfer_image %}
+<!-- Transfer receipt image (screen only, not printed) -->
+<div class="card stat no-print mt-3">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-paperclip ms-1"></i>إيصال التحويل المرفق</h5>
+    <img src="{{ installment.transfer_image.url }}" class="img-fluid rounded js-fullscreen-image" data-fullscreen-src="{{ installment.transfer_image.url }}" alt="صورة إيصال التحويل" style="max-height: 480px; cursor: zoom-in;">
+    <div class="small text-muted mt-2">اضغط على الصورة لتكبيرها.</div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

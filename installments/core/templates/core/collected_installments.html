@@ -1,0 +1,111 @@
+{% extends 'core/base.html' %}
+{% block title %}المحصّل هذا الشهر{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h2>الأقساط المحصّلة — الشهر الحالي</h2>
+    <p class="page-subtitle">كل الدفعات المسجلة خلال {{ date_from|default:'' }}{{ date_from|yesno:' →,' }} هذا الشهر.</p>
+  </div>
+</div>
+
+<div class="card stat border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">من تاريخ الدفع</label>
+        <input type="date" name="from" class="form-control" value="{{ date_from }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">إلى تاريخ الدفع</label>
+        <input type="date" name="to" class="form-control" value="{{ date_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">الوسم</label>
+        <select name="tag" class="form-select">
+          <option value="">الكل</option>
+          <option value="ontime" {% if tag == 'ontime' %}selected{% endif %}>مدفوع في معاده</option>
+          <option value="late" {% if tag == 'late' %}selected{% endif %}>من شهور متأخرة</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary w-100">تصفية</button>
+        <a href="{% url 'core:collected_installments' %}" class="btn btn-outline-secondary">مسح</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 align-items-stretch">
+  <div class="col-md-4 d-flex">
+    <div class="card stat metric-card border-0 shadow-sm h-100 w-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-cash-stack metric-icon"></i>
+        <div>
+          <div class="text-muted small">إجمالي المحصّل (بعد التصفية)</div>
+          <div class="h4 mb-0 money">{{ total|mask_money }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 d-flex">
+    <div class="card stat metric-card border-0 shadow-sm text-center h-100 w-100">
+      <div class="card-body d-flex flex-column justify-content-center">
+        <div class="text-muted small mb-1">هدف</div>
+        <div class="h3 mb-1 money">{{ goal_total|mask_money }}</div>
+        <div class="small text-muted">اتحصّل منها: <span class="money fw-bold">{{ collected_of_goal|mask_money }}</span></div>
+        {% if goal_total and goal_total > 0 %}
+        <div class="progress mt-2" style="height: 8px;">
+          {% widthratio collected_of_goal goal_total 100 as pct %}
+          <div class="progress-bar {% if pct >= 100 %}bg-success{% elif pct >= 50 %}bg-primary{% else %}bg-warning{% endif %}" style="width: {% if pct > 100 %}100{% else %}{{ pct|default:'0' }}{% endif %}%;"></div>
+        </div>
+        <div class="small text-muted mt-1">{{ pct|default:'0' }}%</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 d-flex">
+    <div class="card stat metric-card border-0 shadow-sm h-100 w-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <i class="bi bi-list-check metric-icon"></i>
+        <div>
+          <div class="text-muted small">عدد السجلات</div>
+          <div class="h4 mb-0">{{ installments.paginator.count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card stat border-0 shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead><tr><th>اسم العميل</th><th>رقم العقد</th><th>المنتج</th><th>قيمة القسط</th><th>تم دفعه يوم</th><th>الوسم</th></tr></thead>
+        <tbody>
+          {% for inst in installments %}
+            {% with due_month_ok=inst.due_date %}
+              <tr>
+                <td><a href="{% url 'core:customer_detail' inst.contract.customer_id %}">{{ inst.contract.customer.name }}</a></td>
+                <td><a href="{% url 'core:contract_detail' inst.contract_id %}">{{ inst.contract.contract_number }}</a></td>
+                <td>{% if inst.contract.product %}{{ inst.contract.product.full_name }}{% else %}{{ inst.contract.product_name }}{% endif %}</td>
+                <td class="money">{{ inst.paid_amount|mask_money }}</td>
+                <td>{{ inst.paid_date }}</td>
+                <td>
+                  {% if inst.due_date.year == current_year and inst.due_date.month == current_month %}
+                    <span class="badge bg-success">مدفوع في معاده</span>
+                  {% else %}
+                    <span class="badge bg-danger">من شهور متأخرة</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endwith %}
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted">لا توجد دفعات محصّلة مطابقة.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'core/_pagination.html' %}
+  </div>
+</div>
+{% endblock %}

@@ -69,7 +69,7 @@
       <h5>جدول الأقساط</h5>
       <div class="table-responsive">
         <table class="table table-hover table-installments">
-          <thead><tr><th>#</th><th>الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th></tr></thead>
+          <thead><tr><th>#</th><th>الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th>تم الدفع في</th></tr></thead>
           <tbody>
             {% for row in schedule_rows %}
             <tr>
@@ -85,10 +85,29 @@
                 {% elif row.inst.status == 'partial' %}<span class="badge bg-warning text-dark">جزئي</span>
                 {% else %}<span class="badge bg-secondary">قادم</span>{% endif %}
               </td>
+              <td>
+                {% if row.inst.paid_date %}
+                  {{ row.inst.paid_date|date:"Y-m-d" }}
+                  {% if row.inst.paid_date > row.inst.due_date %}
+                    <i class="bi bi-exclamation-triangle-fill text-danger ms-1" title="اتدفع بعد ميعاده"></i>
+                  {% endif %}
+                {% elif row.inst.due_date < today %}
+                  <span class="text-danger fw-bold">لم يتم السداد — متأخر</span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
             </tr>
-            {% empty %}<tr><td colspan="6" class="text-muted text-center">لا توجد أقساط.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="7" class="text-muted text-center">لا توجد أقساط.</td></tr>{% endfor %}
           </tbody>
         </table>
+
+        {% if contract_delay_text %}
+        <div class="alert alert-danger mt-3 mb-0">
+          <i class="bi bi-exclamation-octagon-fill ms-1"></i>
+          تم تأخير سداد العقد بـ {{ contract_delay_text }}
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

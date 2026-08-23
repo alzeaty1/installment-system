@@ -16,3 +16,10 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # Serve uploaded media in production mode via a simple passthrough view
+    from django.views.static import serve as media_serve
+    from django.urls import re_path
+    urlpatterns += [
+        re_path(r"^media/(?P<path>.*)$", media_serve, {"document_root": settings.MEDIA_ROOT}),
+    ]

@@ -63,65 +63,17 @@
 </div>
 <div class="row g-3 mb-4">
   <div class="col-md-3">
-    <div class="card stat metric-card border-0 shadow-sm">
-          <div class="card-body d-flex align-items-center gap-3">
-            <i class="bi bi-cash-stack metric-icon"></i>
-        <div>
-          <div class="text-muted small">دخل الشهر الحالي</div>
-          <div class="h4 mb-0 money">{{ collected_amount_display|mask_money }}</div>
-          <div class="small text-muted">
-            متوقع: <span class="money">{{ expected_monthly_income|mask_money }}</span>
-            {% if collected_is_override %}
-              <span class="badge bg-warning text-dark ms-1" title="قيمة يدوية">(يدوي)</span>
-            {% else %}
-              <span class="badge bg-light text-dark ms-1" title="محسوب تلقائيًا">(تلقائي)</span>
-            {% endif %}
+      <div class="card stat metric-card border-0 shadow-sm">
+            <div class="card-body d-flex align-items-center gap-3">
+              <i class="bi bi-cash-stack metric-icon"></i>
+          <div>
+            <div class="text-muted small">تم تحصيله (الشهر الحالي)</div>
+            <a href="{% url 'core:collected_installments' %}" class="h4 mb-0 money text-decoration-none" title="عرض تفاصيل الأقساط المحصّلة">{{ collected_amount_display|mask_money }}</a>
           </div>
         </div>
       </div>
-      <div class="card-footer bg-transparent border-0 pt-0 px-3 pb-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#monthlyIncomeModal">
-          <i class="bi bi-pencil ms-1"></i> تعديل
-        </button>
-      </div>
     </div>
-  </div>
 
-  <!-- Monthly Income Modal (Task 1) -->
-  <div class="modal fade" id="monthlyIncomeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <form method="post" action="{% url 'core:monthly_income_edit' monthly_income_id %}">
-          {% csrf_token %}
-          <div class="modal-header">
-            <h5 class="modal-title">تعديل الدخل الشهري</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">الدخل المتوقع الشهري (الهدف)</label>
-              <input type="number" step="0.01" min="0" max="100000" class="form-control" name="expected_monthly_income" value="{{ expected_monthly_income }}">
-            </div>
-            <div class="mb-2">
-              <label class="form-label">المحصل (يدويًا)</label>
-              <input type="number" step="0.01" min="0" max="100000" class="form-control" name="collected_amount_override" placeholder="اتركه فارغًا للحساب التلقائي" value="{% if collected_is_override %}{{ collected_amount_display }}{% endif %}">
-            </div>
-            <div class="form-text mb-2">
-              المحسوب تلقائيًا من الأقساط المدفوعة هذا الشهر: <strong class="money">{{ collected_auto|mask_money }}</strong>
-            </div>
-            <div class="form-check ms-2">
-              <input class="form-check-input" type="checkbox" name="reset_override" value="1" id="resetOverride" {% if not collected_is_override %}disabled{% endif %}>
-              <label class="form-check-label" for="resetOverride">إعادة للاستخدام التلقائي</label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
-            <button type="submit" class="btn btn-primary">حفظ</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
   <div class="col-md-3">
     <div class="card stat metric-card border-0 shadow-sm">
           <div class="card-body d-flex align-items-center gap-3">

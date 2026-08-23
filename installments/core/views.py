@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Count, F, Max, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse, JsonResponse
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -914,7 +915,9 @@ def customer_list(request):
     customers = Customer.objects.filter(account=request.current_account).annotate(contracts_count=Count("contract")).order_by("-created_at")
     if query:
         customers = customers.filter(Q(name__icontains=query) | Q(phone__icontains=query))
-    return render(request, "core/customers_list.html", {"customers": customers, "query": query})
+    paginator = Paginator(customers, 25)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(request, "core/customers_list.html", {"customers": page, "query": query})
 
 
 @require_write
@@ -1173,7 +1176,9 @@ def contract_list(request):
         contracts = contracts.filter(status=status)
     if customer_id:
         contracts = contracts.filter(customer_id=customer_id)
-    return render(request, "core/contracts_list.html", {"contracts": contracts, "customers": Customer.objects.filter(account=request.current_account).order_by("name"), "status": status, "customer_id": customer_id})
+    paginator = Paginator(contracts, 25)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(request, "core/contracts_list.html", {"contracts": page, "customers": Customer.objects.filter(account=request.current_account).order_by("name"), "status": status, "customer_id": customer_id})
 
 
 def _contract_form_context(form, title, is_create, account=None):
@@ -1270,6 +1275,41 @@ def contract_detail(request, id):
     })
 
 
+def _humanize_delay(expected_date, actual_date):
+    """Human-readable delay between two dates, e.g. 'ب شهر و 15 يوم'."""
+    from calendar import monthrange
+    if actual_date <= expected_date:
+        return None
+    months = 0
+    y, m = expected_date.year, expected_date.month
+    # count full months between expected and actual
+    while True:
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+        anchor_day = min(expected_date.day, monthrange(y, m)[1])
+        anchor = expected_date.replace(year=y, month=m, day=anchor_day)
+        if anchor > actual_date:
+            m -= 1
+            if m < 1:
+                m = 12
+                y -= 1
+            break
+        months += 1
+    # remaining days after full months
+    last_valid_day = monthrange(y, m)[1]
+    anchor = expected_date.replace(year=y, month=m, day=min(expected_date.day, last_valid_day))
+    days = (actual_date - anchor).days
+
+    parts = []
+    if months:
+        parts.append(f"{'شهر' if months == 1 else f'{months} شهور'}")
+    if days or not parts:
+        parts.append(f"{'يوم' if days == 1 else 'يومين' if days == 2 else f'{days} يوم'}")
+    return " و ".join(parts)
+
+
 def contract_summary(request, id):
     contract = get_object_or_404(Contract.objects.select_related("customer", "product"), id=id, account=request.current_account)
     installments = contract.installments.order_by("installment_number")
@@ -1305,6 +1345,7 @@ def contract_summary(request, id):
     whatsapp_url = f"https://wa.me/{phone_digits}?text={whatsapp_msg}"
     
     # جدول الأقساط مع التقدم
+    today = _today()
     schedule_rows = []
     carried = Decimal("0.00")
     for inst in installments:
@@ -1317,6 +1358,23 @@ def contract_summary(request, id):
             "carried": carried,
             "remaining": max(inst.amount - inst.paid_amount, Decimal("0.00")),
         })
+
+    # تأخر إتمام العقد: مقارنة آخر قسط مستحق مع تاريخ آخر دفع فعلي (أو اليوم لو لسه)
+    contract_delay_text = None
+    last_due = installments.order_by("-due_date").first()
+    if last_due and total_paid >= contract.total_amount and total_count:
+        # العقد مكتمل — اقفل على تاريخ الدفعة الأخيرة الفعلية
+        last_paid_date = (
+            installments.filter(paid_date__isnull=False)
+            .order_by("-paid_date")
+            .values_list("paid_date", flat=True)
+            .first()
+        )
+        if last_paid_date and last_paid_date > last_due.due_date:
+            contract_delay_text = _humanize_delay(last_due.due_date, last_paid_date)
+    elif last_due and total_paid < contract.total_amount and today > last_due.due_date:
+        # العقد لسه ماشي وعدى موعد إتمامه
+        contract_delay_text = _humanize_delay(last_due.due_date, today)
     
     context = {
         "contract": contract,
@@ -1328,6 +1386,8 @@ def contract_summary(request, id):
         "total_count": total_count,
         "progress": progress,
         "whatsapp_url": whatsapp_url,
+        "contract_delay_text": contract_delay_text,
+        "today": today,
     }
     return render(request, "core/contract_summary.html", context)
 
@@ -1464,7 +1524,9 @@ def installment_list(request):
         installments = installments.filter(due_date__gte=date_from)
     if date_to:
         installments = installments.filter(due_date__lte=date_to)
-    return render(request, "core/installments_list.html", {"installments": installments, "status": status, "date_from": date_from, "date_to": date_to})
+    paginator = Paginator(installments, 50)
+    page = paginator.get_page(request.GET.get("page"))
+    return render(request, "core/installments_list.html", {"installments": page, "status": status, "date_from": date_from, "date_to": date_to})
 
 
 @require_write
@@ -1472,7 +1534,7 @@ def installment_pay(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
     previous_paid = installment.paid_amount
     initial = {"paid_amount": installment.amount - installment.paid_amount, "paid_date": _today(), "payment_method": Installment.PAYMENT_CASH}
-    form = InstallmentPaymentForm(request.POST or None, instance=installment, initial=initial)
+    form = InstallmentPaymentForm(request.POST or None, request.FILES or None, instance=installment, initial=initial)
     
     # Receivers for combobox
     receivers = Receiver.objects.filter(account=request.current_account, is_active=True)
@@ -1918,8 +1980,69 @@ def settings_view(request):
     return render(request, "core/settings.html", {"form": form, "backups": backups, "product_types": product_types})
 
 
-@require_POST
 @require_write
+def collected_installments(request):
+    """List installments actually paid this month, with date/tag filters."""
+    from django.db.models import Sum
+    today = _today()
+    qs = (
+        Installment.objects
+        .filter(account=request.current_account, paid_date__isnull=False)
+        .exclude(paid_amount=0)
+        .filter(paid_date__year=today.year, paid_date__month=today.month)
+        .select_related("contract", "contract__customer", "contract__product")
+        .order_by("-paid_date", "-id")
+    )
+
+    tag = request.GET.get("tag", "")
+    if tag == "late":
+        # paid this month but was due in an earlier month
+        qs = qs.exclude(due_date__year=today.year, due_date__month=today.month)
+    elif tag == "ontime":
+        qs = qs.filter(due_date__year=today.year, due_date__month=today.month)
+
+    date_from = request.GET.get("from", "").strip()
+    date_to = request.GET.get("to", "").strip()
+    if date_from:
+        qs = qs.filter(paid_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(paid_date__lte=date_to)
+
+    total = qs.aggregate(total=Sum("paid_amount", default=MONEY_ZERO))["total"]
+
+    # goal: total amount of installments DUE this month (what should be collected)
+    goal_qs = Installment.objects.filter(
+        account=request.current_account,
+        due_date__year=today.year, due_date__month=today.month,
+    )
+    goal_total = goal_qs.aggregate(total=Sum("amount", default=MONEY_ZERO))["total"]
+    collected_of_goal = goal_qs.aggregate(total=Sum("paid_amount", default=MONEY_ZERO))["total"]
+
+    paginator = Paginator(qs, 50)
+    page = paginator.get_page(request.GET.get("page"))
+
+    querystring = ""
+    if tag:
+        querystring += f"tag={tag}&"
+    if date_from:
+        querystring += f"from={date_from}&"
+    if date_to:
+        querystring += f"to={date_to}&"
+
+    return render(request, "core/collected_installments.html", {
+        "installments": page,
+        "total": total,
+        "tag": tag,
+        "date_from": date_from,
+        "date_to": date_to,
+        "querystring": querystring,
+        "current_year": today.year,
+        "current_month": today.month,
+        "goal_total": goal_total,
+        "collected_of_goal": collected_of_goal,
+    })
+
+
 def monthly_income_edit(request, id):
     """Update expected monthly income and/or the collected amount override (Task 1)."""
     from django.utils import timezone

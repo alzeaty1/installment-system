@@ -57,15 +57,24 @@
     </div>
     <div class="table-responsive">
       <table class="table">
-        <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي بعد القسط</th><th>الحالة</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>تاريخ الاستحقاق</th><th>المبلغ</th><th>المدفوع</th><th>المتبقي بعد القسط</th><th>ط. الدفع</th><th>الحالة</th><th></th></tr></thead>
         <tbody>
           {% for installment in installments %}
             <tr>
-              <td>{{ installment.installment_number }}</td>
+              <td>{{ installment.installment_number }}{% if installment.notes %} <i class="bi bi-sticky text-muted" title="{{ installment.notes }}" style="font-size:.75rem;"></i>{% endif %}</td>
               <td>{{ installment.due_date }}</td>
               <td class="money">{{  installment.amount|mask_money }}</td>
               <td class="money">{{  installment.paid_amount|mask_money }}</td>
               <td class="money text-danger fw-bold">{{ installment.remaining_after_this|mask_money }}</td>
+              <td class="text-nowrap">
+                {% if installment.payment_method == 'cash' %}<span title="كاش"><i class="bi bi-cash"></i></span>
+                {% elif installment.payment_method == 'wallet' %}<span title="محفظة إلكترونية"><i class="bi bi-phone"></i></span>
+                {% elif installment.payment_method == 'instapay' %}<span title="إنستاباي"><i class="bi bi-bank"></i></span>
+                {% else %}<span class="text-muted">—</span>{% endif %}
+                {% if installment.transfer_image %}
+                  <img src="{{ installment.transfer_image.url }}" class="ms-1 rounded js-fullscreen-image" data-fullscreen-src="{{ installment.transfer_image.url }}" alt="إيصال التحويل" title="اضغط لعرض إيصال التحويل" style="height: 26px; width: 26px; object-fit: cover; cursor: zoom-in;">
+                {% endif %}
+              </td>
               <td>{{ installment.get_status_display }}</td>
               <td>
                 <div class="btn-group">
@@ -86,7 +95,7 @@
               </td>
             </tr>
           {% empty %}
-            <tr><td colspan="7">لا توجد أقساط.</td></tr>
+            <tr><td colspan="8">لا توجد أقساط.</td></tr>
           {% endfor %}
         </tbody>
       </table>
