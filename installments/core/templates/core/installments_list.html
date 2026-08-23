@@ -13,6 +13,8 @@
           <option value="pending" {% if status == 'pending' %}selected{% endif %}>معلق</option>
           <option value="paid" {% if status == 'paid' %}selected{% endif %}>مدفوع</option>
           <option value="late" {% if status == 'late' %}selected{% endif %}>متأخر</option>
+          <option value="partial" {% if status == 'partial' %}selected{% endif %}>جزئي</option>
+          <option value="overpaid" {% if status == 'overpaid' %}selected{% endif %}>زيادة</option>
         </select>
       </div>
       <div class="col-md-3">
@@ -56,7 +58,9 @@
               {% if inst.status == 'pending' %}<span class="badge bg-warning text-dark">معلق</span>
               {% elif inst.status == 'paid' %}<span class="badge bg-success">مدفوع</span>
               {% elif inst.status == 'late' %}<span class="badge bg-danger">متأخر</span>
-              {% elif inst.status == 'partial' %}<span class="badge bg-info">جزئي</span>{% endif %}
+              {% elif inst.status == 'partial' %}<span class="badge bg-info">جزئي</span>
+              {% elif inst.status == 'overpaid' %}<span class="badge bg-primary">زيادة</span>
+              {% else %}<span class="badge bg-secondary">{{ inst.get_status_display|default:inst.status }}</span>{% endif %}
             </td>
           </tr>
           {% empty %}
