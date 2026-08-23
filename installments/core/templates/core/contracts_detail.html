@@ -70,6 +70,7 @@
               <td>
                 <div class="btn-group">
                   <a class="btn btn-sm btn-outline-success" href="{% url 'core:installment_pay' installment.id %}">دفع</a>
+                  <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:installment_edit' installment.id %}" title="تعديل"><i class="bi bi-pencil"></i></a>
                   {% if installment.paid_amount > 0 %}
                     <a class="btn btn-sm btn-outline-primary" href="{% url 'core:installment_receipt' installment.id %}"><i class="bi bi-printer"></i></a>
                     <form class="d-inline" method="post" action="{% url 'core:installment_reset_payment' installment.id %}" onsubmit="return confirm('هل تريد إلغاء دفع هذا القسط؟');">{% csrf_token %}<button class="btn btn-sm btn-outline-warning">إلغاء</button></form>

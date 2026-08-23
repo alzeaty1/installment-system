@@ -466,6 +466,29 @@ class InstallmentPaymentForm(BootstrapModelForm):
         return paid_amount
 
 
+class InstallmentEditForm(BootstrapModelForm):
+    """Edit an installment's amount/due date without touching payment data."""
+
+    class Meta:
+        model = Installment
+        fields = ["amount", "due_date", "notes"]
+        labels = {
+            "amount": "قيمة القسط",
+            "due_date": "تاريخ الاستحقاق",
+            "notes": "ملاحظات",
+        }
+        widgets = {
+            "due_date": forms.DateInput(attrs={"type": "date"}),
+            "notes": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def clean_amount(self):
+        amount = self.cleaned_data["amount"]
+        if amount <= 0:
+            raise forms.ValidationError("قيمة القسط يجب أن تكون أكبر من صفر.")
+        return amount
+
+
 class ExpenseForm(BootstrapModelForm):
     new_product_image = forms.ImageField(
         label="صورة المنتج أو السيريال أو فاتورة الشراء",
@@ -1601,6 +1624,47 @@ def installment_reset_payment(request, id):
 
         messages.success(request, "تم إلغاء دفع القسط ورجوعه للحالة الصحيحة.")
     return redirect("core:contract_detail", id=installment.contract_id)
+
+
+@require_write
+def installment_edit(request, id):
+    installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
+    old_amount, old_due = installment.amount, installment.due_date
+    form = InstallmentEditForm(request.POST or None, instance=installment)
+    if request.method == "POST" and form.is_valid():
+        installment = form.save(commit=False)
+        # keep payment-derived status consistent with the new amount
+        if installment.paid_amount > installment.amount:
+            installment.status = Installment.STATUS_OVERPAID
+        elif installment.paid_amount >= installment.amount and installment.paid_amount > 0:
+            installment.status = Installment.STATUS_PAID
+        elif installment.paid_amount > 0:
+            installment.status = Installment.STATUS_PARTIAL
+        elif installment.due_date < _today():
+            installment.status = Installment.STATUS_LATE
+        else:
+            installment.status = Installment.STATUS_PENDING
+        installment.save(update_fields=["amount", "due_date", "notes", "status"])
+        _refresh_contract_status(installment.contract)
+
+        changes = {}
+        if old_amount != installment.amount:
+            changes["amount"] = f"{old_amount} → {installment.amount}"
+        if old_due != installment.due_date:
+            changes["due_date"] = f"{old_due} → {installment.due_date}"
+        _log_activity(
+            request,
+            action=ActivityLog.ACTION_UPDATE,
+            model_name="Installment",
+            obj=installment,
+            description=f"تعديل القسط رقم {installment.installment_number} في العقد {installment.contract.contract_number} للعميل {installment.contract.customer.name}",
+            previous_value={"amount": str(old_amount), "due_date": str(old_due)},
+            new_value={"amount": str(installment.amount), "due_date": str(installment.due_date)},
+        )
+
+        messages.success(request, "تم تعديل القسط بنجاح." + (f" ({changes['amount']})" if "amount" in changes else ""))
+        return redirect("core:contract_detail", id=installment.contract_id)
+    return render(request, "core/installments_edit.html", {"form": form, "installment": installment})
 
 
 @require_write

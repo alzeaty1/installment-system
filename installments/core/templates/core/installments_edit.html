@@ -1,0 +1,40 @@
+{% extends 'core/base.html' %}
+{% block title %}تعديل القسط{% endblock %}
+{% block content %}
+<h2 class="mb-4">تعديل القسط رقم {{ installment.installment_number }} — عقد {{ installment.contract.contract_number }}</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">العميل</div><div class="fw-bold">{{ installment.contract.customer.name }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">المبلغ المدفوع</div><div class="fw-bold money">{{ installment.paid_amount|mask_money }}</div><div class="small text-muted">مش هيتغير</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">الحالة الحالية</div><div class="fw-bold">{{ installment.get_status_display }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">طريقة الدفع</div><div class="fw-bold">{{ installment.payment_method|default:'-' }}</div></div></div></div>
+</div>
+
+<div class="alert alert-info">تعديل هنا بيغير <strong>قيمة القسط وتاريخ الاستحقاق فقط</strong> — الدفعات المسجلة والحسابات مش هتتأثر.</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.amount.id_for_label }}">{{ form.amount.label }}</label>
+        {{ form.amount }}
+        {% for error in form.amount.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.due_date.id_for_label }}">{{ form.due_date.label }}</label>
+        {{ form.due_date }}
+        {% for error in form.due_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-12">
+        <label class="form-label" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+        {{ form.notes }}
+      </div>
+      <div class="col-12 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">حفظ التعديل</button>
+        <a href="{% url 'core:contract_detail' installment.contract_id %}" class="btn btn-outline-secondary">إلغاء</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

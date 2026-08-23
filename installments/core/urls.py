@@ -62,6 +62,11 @@ urlpatterns = [
         name="installment_reset_payment",
     ),
     path(
+        "installments/<int:id>/edit/",
+        views.installment_edit,
+        name="installment_edit",
+    ),
+    path(
         "installments/due-today/",
         views.installment_due_today,
         name="installment_due_today",
