@@ -75,8 +75,17 @@
                   <img src="{{ installment.transfer_image.url }}" class="ms-1 rounded js-fullscreen-image" data-fullscreen-src="{{ installment.transfer_image.url }}" alt="إيصال التحويل" title="اضغط لعرض إيصال التحويل" style="height: 26px; width: 26px; object-fit: cover; cursor: zoom-in;">
                 {% endif %}
               </td>
-              <td>{{ installment.get_status_display }}</td>
               <td>
+                {% if installment.status == 'pending' %}<span class="badge bg-warning text-dark">معلق</span>
+                {% elif installment.status == 'paid' %}<span class="badge bg-success">مدفوع</span>
+                {% elif installment.status == 'late' %}<span class="badge bg-danger">متأخر</span>
+                {% elif installment.status == 'partial' %}<span class="badge bg-info">جزئي</span>
+                {% elif installment.status == 'overpaid' %}<span class="badge bg-primary">زيادة</span>
+                {% elif installment.status == 'closed' %}<span class="badge bg-secondary">معفي</span>
+                {% else %}<span class="badge bg-secondary">{{ installment.get_status_display|default:installment.status }}</span>{% endif %}
+              </td>
+              <td>
+                {% if not contract.is_early_completed or installment.status != 'closed' %}
                 <div class="btn-group">
                   <a class="btn btn-sm btn-outline-success" href="{% url 'core:installment_pay' installment.id %}">دفع</a>
                   <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:installment_edit' installment.id %}" title="تعديل"><i class="bi bi-pencil"></i></a>
@@ -92,6 +101,9 @@
                     {% endif %}
                   </div>
                 </div>
+                {% else %}
+                  <span class="badge bg-secondary">معفي</span>
+                {% endif %}
               </td>
             </tr>
           {% empty %}

@@ -696,7 +696,7 @@ def _mark_late_installments():
     late_qs = Installment.objects.filter(
         due_date__lt=_today(),
         status=Installment.STATUS_PENDING,
-    )
+    ).exclude(contract__status=Contract.STATUS_EARLY_COMPLETED)
     late_contract_ids = list(late_qs.values_list("contract_id", flat=True).distinct())
     late_qs.update(status=Installment.STATUS_LATE)
     Contract.objects.filter(id__in=late_contract_ids, status=Contract.STATUS_ACTIVE).update(
@@ -705,6 +705,8 @@ def _mark_late_installments():
 
 
 def _refresh_contract_status(contract):
+    if contract.status == Contract.STATUS_EARLY_COMPLETED:
+        return  # early-completed contracts stay closed
     installments = contract.installments.all()
     if installments.exists() and not installments.exclude(status=Installment.STATUS_PAID).exists():
         contract.status = Contract.STATUS_COMPLETED
@@ -1466,13 +1468,18 @@ def contract_mark_completed(request, id):
     contract = get_object_or_404(Contract, id=id, account=request.current_account)
     if request.method == "POST":
         old_status = contract.status
-        contract.status = Contract.STATUS_COMPLETED
+        had_unpaid = contract.installments.exclude(status=Installment.STATUS_PAID).exists()
+        if had_unpaid:
+            # إغلاق مبكر: اقفل الأقساط المتبقية بدون تسجيل دفع وهمي
+            contract.status = Contract.STATUS_EARLY_COMPLETED
+            contract.installments.exclude(status=Installment.STATUS_PAID).update(
+                status=Installment.STATUS_CLOSED,
+            )
+            msg = "تم إغلاق العقد مبكرًا — الأقساط المتبقية اعتبرت معفاة ولن تُحسب عليه."
+        else:
+            contract.status = Contract.STATUS_COMPLETED
+            msg = "تم تعليم العقد كمكتمل."
         contract.save(update_fields=["status"])
-        contract.installments.exclude(status=Installment.STATUS_PAID).update(
-            paid_amount=F("amount"),
-            paid_date=_today(),
-            status=Installment.STATUS_PAID,
-        )
 
         # Log completion
         _log_activity(
@@ -1480,12 +1487,12 @@ def contract_mark_completed(request, id):
             action=ActivityLog.ACTION_MARK_COMPLETED,
             model_name="Contract",
             obj=contract,
-            description=f"تعليم العقد رقم {contract.contract_number} للعميل {contract.customer.name} كمكتمل وتسوية جميع الأقساط المتبقية",
+            description=f"تعليم العقد رقم {contract.contract_number} للعميل {contract.customer.name} كمكتمل" + (" (إغلاق مبكر مع أقساط معفاة)" if had_unpaid else " وتسوية جميع الأقساط المتبقية"),
             previous_value={"status": old_status},
-            new_value={"status": Contract.STATUS_COMPLETED}
+            new_value={"status": contract.status}
         )
 
-        messages.success(request, "تم تعليم العقد كمكتمل.")
+        messages.success(request, msg)
     return redirect("core:contract_detail", id=contract.id)
 
 
@@ -1532,6 +1539,9 @@ def installment_list(request):
 @require_write
 def installment_pay(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
+    if installment.contract.status == Contract.STATUS_EARLY_COMPLETED:
+        messages.error(request, "العقد مغلق مبكرًا — لا يمكن تسجيل دفعات عليه.")
+        return redirect("core:contract_detail", id=installment.contract_id)
     previous_paid = installment.paid_amount
     initial = {"paid_amount": installment.amount - installment.paid_amount, "paid_date": _today(), "payment_method": Installment.PAYMENT_CASH}
     form = InstallmentPaymentForm(request.POST or None, request.FILES or None, instance=installment, initial=initial)
@@ -1691,6 +1701,9 @@ def installment_reset_payment(request, id):
 @require_write
 def installment_edit(request, id):
     installment = get_object_or_404(Installment.objects.select_related("contract", "contract__customer"), id=id, account=request.current_account)
+    if installment.contract.status == Contract.STATUS_EARLY_COMPLETED:
+        messages.error(request, "العقد مغلق مبكرًا — لا يمكن تعديل أقساطه.")
+        return redirect("core:contract_detail", id=installment.contract_id)
     old_amount, old_due = installment.amount, installment.due_date
     form = InstallmentEditForm(request.POST or None, instance=installment)
     if request.method == "POST" and form.is_valid():

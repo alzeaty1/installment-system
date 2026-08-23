@@ -237,12 +237,14 @@ class Contract(models.Model):
     STATUS_COMPLETED = "completed"
     STATUS_OVERDUE = "overdue"
     STATUS_CANCELLED = "cancelled"
+    STATUS_EARLY_COMPLETED = "early_completed"
 
     STATUS_CHOICES = [
         (STATUS_ACTIVE, "نشط"),
         (STATUS_COMPLETED, "مكتمل"),
         (STATUS_OVERDUE, "متأخر"),
         (STATUS_CANCELLED, "ملغي"),
+        (STATUS_EARLY_COMPLETED, "مكتمل (إغلاق مبكر)"),
     ]
 
     contract_number = models.CharField(max_length=50, unique=True, blank=True, verbose_name="رقم العقد")
@@ -396,6 +398,10 @@ class Contract(models.Model):
         pct = (self.total_paid / self.total_amount) * 100
         return min(round(pct, 1), 100)
 
+    @property
+    def is_early_completed(self):
+        return self.status == self.STATUS_EARLY_COMPLETED
+
 
 class Installment(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
@@ -404,6 +410,7 @@ class Installment(models.Model):
     STATUS_LATE = "late"
     STATUS_PARTIAL = "partial"
     STATUS_OVERPAID = "overpaid"
+    STATUS_CLOSED = "closed"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "معلق"),
@@ -411,6 +418,7 @@ class Installment(models.Model):
         (STATUS_LATE, "متأخر"),
         (STATUS_PARTIAL, "جزئي"),
         (STATUS_OVERPAID, "زيادة"),
+        (STATUS_CLOSED, "معفي"),
     ]
 
     PAYMENT_CASH = "cash"
