@@ -781,7 +781,7 @@ def dashboard(request):
     installments = Installment.objects.select_related("contract", "contract__customer").filter(account=request.current_account)
     
     # أقساط اليوم
-    due_today = installments.filter(due_date=today).exclude(status=Installment.STATUS_PAID)
+    due_today = installments.filter(due_date=today).exclude(status__in=[Installment.STATUS_PAID, Installment.STATUS_CLOSED])
     for inst in due_today:
         inst.whatsapp_url = _get_whatsapp_url(inst, "reminder")
     
@@ -1836,7 +1836,13 @@ def installment_edit(request, id):
 
 @require_write
 def installment_due_today(request):
-    installments = Installment.objects.filter(account=request.current_account).select_related("contract", "contract__customer").filter(due_date=_today()).exclude(status=Installment.STATUS_PAID)
+    installments = (
+        Installment.objects
+        .filter(account=request.current_account)
+        .select_related("contract", "contract__customer")
+        .filter(due_date=_today())
+        .exclude(status__in=[Installment.STATUS_PAID, Installment.STATUS_CLOSED])
+    )
     return render(request, "core/installments_list.html", {"installments": installments, "title": "أقساط اليوم"})
 
 
@@ -1934,7 +1940,13 @@ def notification_check_due(request):
     if request.method == "POST":
         _mark_late_installments()
         created = 0
-        due_installments = Installment.objects.filter(account=request.current_account).select_related("contract", "contract__customer").filter(due_date__lte=_today()).exclude(status=Installment.STATUS_PAID)
+        due_installments = (
+            Installment.objects
+            .filter(account=request.current_account)
+            .select_related("contract", "contract__customer")
+            .filter(due_date__lte=_today())
+            .exclude(status__in=[Installment.STATUS_PAID, Installment.STATUS_CLOSED])
+        )
         for installment in due_installments:
             notification_type = Notification.TYPE_OVERDUE if installment.due_date < _today() else Notification.TYPE_REMINDER
             message = f"قسط مستحق للعميل {installment.contract.customer.name} في عقد {installment.contract.contract_number}"
