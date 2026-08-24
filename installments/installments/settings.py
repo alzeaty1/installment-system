@@ -13,6 +13,25 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 
+# تحميل .env من جذر المشروع (فوق مجلد Django) لو موجود — بدون اعتماديات خارجية
+from pathlib import Path as _P
+
+def _load_env_file():
+    for candidate in (_P(__file__).resolve().parent.parent.parent / ".env", _P(__file__).resolve().parent.parent / ".env"):
+        if candidate.exists():
+            try:
+                for line in candidate.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, value = line.partition("=")
+                    os.environ.setdefault(key.strip(), value.strip())
+            except Exception:
+                pass
+            break
+
+_load_env_file()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

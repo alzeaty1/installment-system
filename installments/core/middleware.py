@@ -43,6 +43,26 @@ class AutoBackupMiddleware:
             with open(ts_file, "w") as f:
                 f.write(str(now))
             logger.info(f"Auto-backup completed: {name}")
+
+            # إرسال النسخة على تيليجرام (fail-soft)
+            try:
+                from datetime import datetime
+                from django.conf import settings as _s
+                from .telegram_notify import send_document
+                dest = os.path.join(_s.BASE_DIR, "backups", name)
+                ok, detail = send_document(
+                    dest,
+                    caption=f"🗄️ نسخة احتياطية — {datetime.now().strftime('%Y-%m-%d %H:%M')}\n{name}",
+                )
+                tg_file = os.path.join(_s.BASE_DIR, "backups", ".last_telegram")
+                with open(tg_file, "w", encoding="utf-8") as f:
+                    f.write(f"{now}|{'ok' if ok else 'fail'}|{detail[:100]}")
+                if ok:
+                    logger.info("Backup sent to telegram")
+                else:
+                    logger.warning(f"Telegram backup send failed: {detail}")
+            except Exception as te:
+                logger.error(f"telegram backup error: {te}")
         except Exception as e:
             logger.error(f"Auto-backup error: {e}")
 
