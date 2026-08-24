@@ -717,6 +717,23 @@ def _refresh_contract_status(contract):
     contract.save(update_fields=["status"])
 
 
+def _maybe_auto_close(contract):
+    """أقفل العقد تلقائيًا لحظة وصول إجمالي المسدد لقيمة العقد (من أي مسار).
+
+    يرجع True لو حصل إقفال الآن. العقود المغلقة مبكرًا مستثناة.
+    """
+    if contract.status == Contract.STATUS_EARLY_COMPLETED:
+        return False
+    if not contract.installments.exists():
+        return False
+    if contract.total_paid >= contract.total_amount:
+        if contract.status != Contract.STATUS_COMPLETED:
+            contract.status = Contract.STATUS_COMPLETED
+            contract.save(update_fields=["status"])
+        return True
+    return False
+
+
 def _contract_profit(contract):
     return (contract.customer_price - contract.actual_cost) + contract.total_interest
 
@@ -1750,6 +1767,12 @@ def installment_reset_payment(request, id):
             update_fields=["paid_amount", "paid_date", "payment_method", "status"]
         )
         _refresh_contract_status(installment.contract)
+        # لو الإلغاء خلّى المدفوع أقل من قيمة العقد → العقد يرجع نشط (مش مكتمل)
+        contract = installment.contract
+        contract.refresh_from_db()
+        if contract.status == Contract.STATUS_COMPLETED and contract.total_paid < contract.total_amount:
+            contract.status = Contract.STATUS_ACTIVE
+            contract.save(update_fields=["status"])
 
         # Log reset activity
         _log_activity(
@@ -1789,6 +1812,7 @@ def installment_edit(request, id):
             installment.status = Installment.STATUS_PENDING
         installment.save(update_fields=["amount", "due_date", "notes", "status"])
         _refresh_contract_status(installment.contract)
+        _maybe_auto_close(installment.contract)
 
         changes = {}
         if old_amount != installment.amount:
