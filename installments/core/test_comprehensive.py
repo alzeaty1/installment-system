@@ -303,12 +303,24 @@ class PaymentLifecycleTests(TestCase):
         self.assertEqual(self.inst1.status, Installment.STATUS_PAID)
 
     def test_pay_over(self):
+        """Overpayment distributes the excess to the next installment (smart allocation)."""
+        # second installment to receive the overflow
+        inst2 = Installment.objects.create(
+            contract=self.contract, installment_number=2,
+            due_date=date(2026, 8, 1), amount=Decimal("3300.00"),
+            paid_amount=Decimal("0"), status=Installment.STATUS_PENDING,
+            account=self.account,
+        )
         r = self.client.post(reverse("core:installment_pay", args=[self.inst1.id]), data={
             "paid_amount": "4000.00", "paid_date": "2026-07-03",
             "payment_method": "cash", "received_by": "Cashier", "notes": ""})
         self.assertEqual(r.status_code, 302)
         self.inst1.refresh_from_db()
-        self.assertEqual(self.inst1.paid_amount, Decimal("4000.00"))
+        inst2.refresh_from_db()
+        # inst1 is capped at its amount; the 700 excess flows to inst2 as prepayment
+        self.assertEqual(self.inst1.paid_amount, Decimal("3300.00"))
+        self.assertEqual(inst2.paid_amount, Decimal("700.00"))
+        self.assertEqual(inst2.status, Installment.STATUS_PARTIAL)
 
     def test_pay_partial(self):
         r = self.client.post(reverse("core:installment_pay", args=[self.inst1.id]), data={
@@ -595,7 +607,12 @@ class OverpaidStatusTests(TestCase):
         self.assertIn("overpaid", choices)
 
     def test_pay_more_than_amount_sets_overpaid(self):
-        """Paying 600 on a 500 installment → status=overpaid."""
+        """600 on a 500 installment: excess flows to next installment (smart allocation)."""
+        inst2 = Installment.objects.create(
+            contract=self.contract, installment_number=2,
+            due_date=date(2025, 8, 8), amount=Decimal("500"),
+            account=self.account,
+        )
         r = self.client.post(reverse("core:installment_pay", args=[self.inst.id]), {
             "paid_amount": "600.00",
             "paid_date": "2025-07-10",
@@ -604,8 +621,12 @@ class OverpaidStatusTests(TestCase):
         })
         self.assertEqual(r.status_code, 302)
         self.inst.refresh_from_db()
-        self.assertEqual(self.inst.paid_amount, Decimal("600.00"))
-        self.assertEqual(self.inst.status, Installment.STATUS_OVERPAID)
+        inst2.refresh_from_db()
+        # capped at amount → paid; excess 100 pre-pays inst2 → partial
+        self.assertEqual(self.inst.paid_amount, Decimal("500.00"))
+        self.assertEqual(self.inst.status, Installment.STATUS_PAID)
+        self.assertEqual(inst2.paid_amount, Decimal("100.00"))
+        self.assertEqual(inst2.status, Installment.STATUS_PARTIAL)
 
     def test_pay_exact_sets_paid_not_overpaid(self):
         """Paying exactly 500 → status=paid."""

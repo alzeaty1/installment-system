@@ -468,26 +468,46 @@ class InstallmentPaymentForm(BootstrapModelForm):
 
 
 class InstallmentEditForm(BootstrapModelForm):
-    """Edit an installment's amount/due date without touching payment data."""
+    """Edit an installment's amount/due date, and correct a mis-typed payment amount."""
 
     class Meta:
         model = Installment
-        fields = ["amount", "due_date", "notes"]
+        fields = ["amount", "due_date", "notes", "paid_amount"]
         labels = {
             "amount": "قيمة القسط",
             "due_date": "تاريخ الاستحقاق",
             "notes": "ملاحظات",
+            "paid_amount": "المبلغ المدفوع (تصحيح خطأ إدخال)",
         }
         widgets = {
             "due_date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["paid_amount"].help_text = (
+            "استخدمه لتصحيح رقم دفعة اتكتبت غلط فقط — مش لإلغاء الدفعة "
+            "(للإلغاء استخدم زر إلغاء الدفع في صفحة العقد)."
+        )
+
     def clean_amount(self):
         amount = self.cleaned_data["amount"]
         if amount <= 0:
             raise forms.ValidationError("قيمة القسط يجب أن تكون أكبر من صفر.")
         return amount
+
+    def clean_paid_amount(self):
+        paid = self.cleaned_data["paid_amount"]
+        if paid is None or paid < 0:
+            raise forms.ValidationError("المدفوع لا يمكن أن يكون سالبًا.")
+        amount = self.cleaned_data.get("amount") or self.initial.get("amount")
+        if amount and paid > amount * 2:
+            raise forms.ValidationError(
+                f"المدفوع ({paid}) أكبر من ضعف قيمة القسط — راجع الرقم، "
+                "ولو الزيادة مقصودة وزعها من شاشة الدفع."
+            )
+        return paid
 
 
 class ExpenseForm(BootstrapModelForm):
@@ -1796,6 +1816,7 @@ def installment_edit(request, id):
         messages.error(request, "العقد مغلق مبكرًا — لا يمكن تعديل أقساطه.")
         return redirect("core:contract_detail", id=installment.contract_id)
     old_amount, old_due = installment.amount, installment.due_date
+    old_paid = installment.paid_amount
     form = InstallmentEditForm(request.POST or None, instance=installment)
     if request.method == "POST" and form.is_valid():
         installment = form.save(commit=False)
@@ -1810,7 +1831,7 @@ def installment_edit(request, id):
             installment.status = Installment.STATUS_LATE
         else:
             installment.status = Installment.STATUS_PENDING
-        installment.save(update_fields=["amount", "due_date", "notes", "status"])
+        installment.save(update_fields=["amount", "due_date", "notes", "paid_amount", "status"])
         _refresh_contract_status(installment.contract)
         _maybe_auto_close(installment.contract)
 
@@ -1819,17 +1840,19 @@ def installment_edit(request, id):
             changes["amount"] = f"{old_amount} → {installment.amount}"
         if old_due != installment.due_date:
             changes["due_date"] = f"{old_due} → {installment.due_date}"
+        if old_paid != installment.paid_amount:
+            changes["paid_amount"] = f"تصحيح دفعة: {old_paid} → {installment.paid_amount}"
         _log_activity(
             request,
             action=ActivityLog.ACTION_UPDATE,
             model_name="Installment",
             obj=installment,
             description=f"تعديل القسط رقم {installment.installment_number} في العقد {installment.contract.contract_number} للعميل {installment.contract.customer.name}",
-            previous_value={"amount": str(old_amount), "due_date": str(old_due)},
-            new_value={"amount": str(installment.amount), "due_date": str(installment.due_date)},
+            previous_value={"amount": str(old_amount), "due_date": str(old_due), "paid_amount": str(old_paid)},
+            new_value={"amount": str(installment.amount), "due_date": str(installment.due_date), "paid_amount": str(installment.paid_amount)},
         )
 
-        messages.success(request, "تم تعديل القسط بنجاح." + (f" ({changes['amount']})" if "amount" in changes else ""))
+        messages.success(request, "تم تعديل القسط بنجاح." + (f" ({changes['amount']})" if "amount" in changes else "") + (f" ({changes['paid_amount']})" if "paid_amount" in changes else ""))
         return redirect("core:contract_detail", id=installment.contract_id)
     return render(request, "core/installments_edit.html", {"form": form, "installment": installment})
 

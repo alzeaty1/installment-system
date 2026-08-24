@@ -5,12 +5,12 @@
 
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">العميل</div><div class="fw-bold">{{ installment.contract.customer.name }}</div></div></div></div>
-  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">المبلغ المدفوع</div><div class="fw-bold money">{{ installment.paid_amount|mask_money }}</div><div class="small text-muted">مش هيتغير</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">المبلغ المدفوع</div><div class="fw-bold money">{{ installment.paid_amount|mask_money }}</div><div class="small text-muted">سجل دفعات ثابت — بيتصحح من الخانة المخصصة تحت فقط</div></div></div></div>
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">الحالة الحالية</div><div class="fw-bold">{{ installment.get_status_display }}</div></div></div></div>
   <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted small">طريقة الدفع</div><div class="fw-bold">{{ installment.payment_method|default:'-' }}</div></div></div></div>
 </div>
 
-<div class="alert alert-info">تعديل هنا بيغير <strong>قيمة القسط وتاريخ الاستحقاق فقط</strong> — الدفعات المسجلة والحسابات مش هتتأثر.</div>
+<div class="alert alert-info">تعديل هنا بيغير <strong>قيمة القسط وتاريخ الاستحقاق</strong>، وكمان <strong>تصحيح رقم دفعة اتكتبت غلط</strong> من خانة المدفوع. سجل الحركات بيسجل أي تغيير بالقيمة قبل وبعد.</div>
 
 <div class="card border-0 shadow-sm">
   <div class="card-body">
@@ -25,6 +25,12 @@
         <label class="form-label" for="{{ form.due_date.id_for_label }}">{{ form.due_date.label }}</label>
         {{ form.due_date }}
         {% for error in form.due_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="{{ form.paid_amount.id_for_label }}">{{ form.paid_amount.label }}</label>
+        {{ form.paid_amount }}
+        {% if form.paid_amount.help_text %}<div class="small text-muted">{{ form.paid_amount.help_text }}</div>{% endif %}
+        {% for error in form.paid_amount.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
       </div>
       <div class="col-md-12">
         <label class="form-label" for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
