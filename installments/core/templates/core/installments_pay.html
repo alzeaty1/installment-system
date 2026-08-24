@@ -16,17 +16,19 @@
       <table class="table table-sm mb-0">
         <tr><td>المبلغ</td><td class="money">{{ installment.amount|mask_money }}</td></tr>
         <tr><td>المدفوع</td><td class="money text-success">{{ installment.paid_amount|mask_money }}</td></tr>
-        <tr><td>المتبقي</td><td class="money text-danger">{{ installment.remaining_amount|mask_money }}</td></tr>
+        <tr><td>المتبقي على القسط</td><td class="money text-danger">{{ installment.remaining_amount|mask_money }}</td></tr>
         <tr><td>تاريخ الاستحقاق</td><td>{{ installment.due_date }}</td></tr>
         <tr><td>الحالة</td><td>{{ installment.get_status_display }}</td></tr>
+        <tr class="border-top"><td class="text-muted">إجمالي المتبقي على العقد</td><td class="money fw-bold">{{ remaining_total|mask_money }}</td></tr>
       </table>
+      <div class="small text-muted mt-2">أي مبلغ تدخله هيتوزع تلقائيًا: يكمل هذا القسط أولًا ثم الأقساط الجاية بالترتيب.</div>
     </div></div>
   </div>
 
   <div class="col-md-7">
     <div class="card stat"><div class="card-body">
       <h5 class="card-title">تسديد</h5>
-      <form method="post" enctype="multipart/form-data" class="row g-3">
+      <form method="post" enctype="multipart/form-data" class="row g-3" id="payForm">
         {% csrf_token %}
         {{ form.media }}
         {% for field in form %}
@@ -37,19 +39,17 @@
           {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
         </div>
         {% endfor %}
-        <div class="col-12"><button class="btn btn-primary" id="paySubmitBtn"><i class="bi bi-credit-card ms-1"></i>تأكيد الدفع</button></div>
+        <div class="col-12"><button type="submit" class="btn btn-primary" id="paySubmitBtn"><i class="bi bi-credit-card ms-1"></i>تأكيد الدفع</button></div>
       </form>
     </div></div>
   </div>
 </div>
 
-{% block extra_js %}
 <script>
 (function() {
   var remainingTotal = {{ remaining_total|floatformat:"2" }};
-  var btn = document.getElementById('paySubmitBtn');
-  if (!btn) return;
-  var form = btn.closest('form');
+  var form = document.getElementById('payForm');
+  if (!form) return;
   form.addEventListener('submit', function(e) {
     var amountInput = document.querySelector('[name="paid_amount"]');
     if (!amountInput) return;
@@ -67,7 +67,7 @@
 (function() {
   // الحقول اللي هنتحكم فيها
   const DYNAMIC_FIELDS = ['transfer_sender_account', 'transfer_sender_name', 'transfer_image', 'received_by'];
-  
+
   // كل payment method و الحقول اللي تظهر معاه
   const FIELD_MAP = {
     'cash': ['received_by'],
