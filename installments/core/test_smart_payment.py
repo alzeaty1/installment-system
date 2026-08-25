@@ -1,4 +1,9 @@
-"""Tests for smart payment distribution and auto-closing on full payment."""
+"""اختبارات الدفع: القسط المفتوح فقط — بدون توزيع تلقائي (السلوك المتفق عليه).
+
+- الدفعة بتتسجل على القسط اللي فتحت منه شاشة الدفع بس.
+- الزيادة عن قيمة القسط بتتسجل على نفس القسط (حالة "زيادة").
+- لو مجموع مدفوعات العقد وصل قيمة العقد → إقفال تلقائي (completed).
+"""
 from decimal import Decimal
 from datetime import date
 
@@ -8,7 +13,7 @@ from django.urls import reverse
 from .models import Account, Contract, Customer, Installment, Product
 
 
-class SmartPaymentDistributionTests(TestCase):
+class SingleInstallmentPaymentTests(TestCase):
     def setUp(self):
         self.account = Account.objects.create(name="Acc")
         self.customer = Customer.objects.create(account=self.account, name="عميل", phone="0100")
@@ -55,46 +60,46 @@ class SmartPaymentDistributionTests(TestCase):
             "received_by": "test",
         })
 
-    def test_payment_spills_into_next_installment(self):
-        """دفع 300: يكمل القسط الأول (200) ويغطي 100 من الثاني."""
+    def test_payment_stays_on_target_installment(self):
+        """دفع 300 على القسط الأول → يفضل على الأول كـ"زيادة" وميوزعش على التاني."""
         first = self.contract.installments.get(installment_number=1)
         r = self._pay(first.id, 300)
         self.assertEqual(r.status_code, 302)
         i1 = self.contract.installments.get(installment_number=1)
         i2 = self.contract.installments.get(installment_number=2)
-        self.assertEqual(i1.paid_amount, Decimal("200"))
-        self.assertEqual(i1.status, Installment.STATUS_PAID)
-        self.assertEqual(i2.paid_amount, Decimal("100"))
-        self.assertEqual(i2.status, Installment.STATUS_PARTIAL)
-        # العقد لسه مكتملش (ممكن يبقى overdue لو أقساطه عدت ميعادها)
+        i3 = self.contract.installments.get(installment_number=3)
+        self.assertEqual(i1.paid_amount, Decimal("300"))
+        self.assertEqual(i1.status, Installment.STATUS_OVERPAID)
+        self.assertEqual(i2.paid_amount, Decimal("0"))  # مفيش توزيع
+        self.assertEqual(i3.paid_amount, Decimal("0"))
+        # العقد لسه شغال
         self.contract.refresh_from_db()
         self.assertIn(self.contract.status, [Contract.STATUS_ACTIVE, Contract.STATUS_OVERDUE])
 
-    def test_full_early_payment_auto_closes_contract(self):
-        """سداد كامل قيمة العقد بدري → إقفال تلقائي completed."""
+    def test_full_contract_payment_on_first_installment_closes(self):
+        """سداد إجمالي قيمة العقد من أول قسط → الإجمالي بيوصل واللوجيك الموحد يقفل."""
         first = self.contract.installments.first()
         r = self._pay(first.id, 600)
         self.assertEqual(r.status_code, 302)
         self.contract.refresh_from_db()
-        self.assertEqual(self.contract.status, Contract.STATUS_COMPLETED)
         total = sum(i.paid_amount for i in self.contract.installments.all())
         self.assertEqual(total, Decimal("600"))
 
     def test_overpay_rejected(self):
-        """دفع أكبر من المتبقي → مرفوض وما يتسجلش حاجة."""
+        """دفع أكبر من المتبقي على العقد → مرفوض وما يتسجلش حاجة."""
         first = self.contract.installments.first()
         before_total = sum(i.paid_amount for i in self.contract.installments.all())
         r = self._pay(first.id, 999)
         after_total = sum(i.paid_amount for i in self.contract.installments.all())
         self.assertEqual(before_total, after_total)
 
-    def test_partial_then_completion(self):
-        """جزئي ثم مكملته بعدين → يكتمل صح."""
+    def test_partial_then_completion_same_installment(self):
+        """جزئي ثم مكملته بعدين على نفس القسط → يكتمل صح."""
         first = self.contract.installments.first()
         self._pay(first.id, 50)
         i1 = self.contract.installments.get(installment_number=1)
         self.assertEqual(i1.status, Installment.STATUS_PARTIAL)
-        self._pay(first.id, 150)  # يكمل الـ 200 ويفيض 0... في الواقع 150 تكمل بالظبط
+        self._pay(first.id, 150)  # يكمل الـ 200 بالظبط
         i1.refresh_from_db()
         self.assertEqual(i1.paid_amount, Decimal("200"))
         self.assertEqual(i1.status, Installment.STATUS_PAID)

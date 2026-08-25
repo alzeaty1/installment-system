@@ -21,7 +21,6 @@
         <tr><td>الحالة</td><td>{{ installment.get_status_display }}</td></tr>
         <tr class="border-top"><td class="text-muted">إجمالي المتبقي على العقد</td><td class="money fw-bold">{{ remaining_total|mask_money }}</td></tr>
       </table>
-      <div class="small text-muted mt-2">أي مبلغ تدخله هيتوزع تلقائيًا: يكمل هذا القسط أولًا ثم الأقساط الجاية بالترتيب.</div>
     </div></div>
   </div>
 
@@ -44,24 +43,6 @@
     </div></div>
   </div>
 </div>
-
-<script>
-(function() {
-  var remainingTotal = {{ remaining_total|floatformat:"2" }};
-  var form = document.getElementById('payForm');
-  if (!form) return;
-  form.addEventListener('submit', function(e) {
-    var amountInput = document.querySelector('[name="paid_amount"]');
-    if (!amountInput) return;
-    var amount = parseFloat(amountInput.value || '0');
-    if (amount >= remainingTotal && remainingTotal > 0) {
-      if (!confirm('⚠️ الدفعة دي (' + amount + ') هتكمل قيمة العقد كاملة (' + remainingTotal + ' متبقي) — العقد هيقفل تلقائيًا. متابعة؟')) {
-        e.preventDefault();
-      }
-    }
-  });
-})();
-</script>
 
 <script>
 (function() {

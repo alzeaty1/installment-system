@@ -317,10 +317,11 @@ class PaymentLifecycleTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.inst1.refresh_from_db()
         inst2.refresh_from_db()
-        # inst1 is capped at its amount; the 700 excess flows to inst2 as prepayment
-        self.assertEqual(self.inst1.paid_amount, Decimal("3300.00"))
-        self.assertEqual(inst2.paid_amount, Decimal("700.00"))
-        self.assertEqual(inst2.status, Installment.STATUS_PARTIAL)
+        # no auto-distribution: the full 4000 stays on inst1 as "overpaid"
+        self.assertEqual(self.inst1.paid_amount, Decimal("4000.00"))
+        self.assertEqual(self.inst1.status, Installment.STATUS_OVERPAID)
+        self.assertEqual(inst2.paid_amount, Decimal("0"))
+        self.assertEqual(inst2.status, Installment.STATUS_PENDING)
 
     def test_pay_partial(self):
         r = self.client.post(reverse("core:installment_pay", args=[self.inst1.id]), data={
@@ -622,11 +623,11 @@ class OverpaidStatusTests(TestCase):
         self.assertEqual(r.status_code, 302)
         self.inst.refresh_from_db()
         inst2.refresh_from_db()
-        # capped at amount → paid; excess 100 pre-pays inst2 → partial
-        self.assertEqual(self.inst.paid_amount, Decimal("500.00"))
-        self.assertEqual(self.inst.status, Installment.STATUS_PAID)
-        self.assertEqual(inst2.paid_amount, Decimal("100.00"))
-        self.assertEqual(inst2.status, Installment.STATUS_PARTIAL)
+        # no auto-distribution: full 600 stays on inst → "overpaid"; inst2 untouched
+        self.assertEqual(self.inst.paid_amount, Decimal("600.00"))
+        self.assertEqual(self.inst.status, Installment.STATUS_OVERPAID)
+        self.assertEqual(inst2.paid_amount, Decimal("0"))
+        self.assertEqual(inst2.status, Installment.STATUS_PENDING)
 
     def test_pay_exact_sets_paid_not_overpaid(self):
         """Paying exactly 500 → status=paid."""
