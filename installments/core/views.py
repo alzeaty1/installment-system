@@ -1976,9 +1976,13 @@ def reports_dashboard(request):
 
     # ── 12-month series: collections vs new financing ──
     today = _today()
+    try:
+        chart_months = max(3, min(24, int(request.GET.get("months", 12))))
+    except ValueError:
+        chart_months = 12
     months = []
     cursor = today.replace(day=1)
-    for _ in range(12):
+    for _ in range(chart_months):
         months.insert(0, (cursor.year, cursor.month))
         cursor = (cursor - timedelta(days=1)).replace(day=1)
 
@@ -2013,6 +2017,8 @@ def reports_dashboard(request):
         "chart_labels_json": json.dumps(labels, ensure_ascii=False),
         "chart_collected_json": json.dumps(series_collected),
         "chart_financed_json": json.dumps(series_financed),
+        "chart_months": chart_months,
+        "chart_ranges": [(3, "3 شهور"), (6, "6 شهور"), (12, "سنة"), (24, "سنتين")],
     })
 
 
