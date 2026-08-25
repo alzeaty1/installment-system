@@ -1252,9 +1252,10 @@ def contract_create(request):
             return JsonResponse({"success": False, "error": str(exc)})
 
     settings = _settings()
+    today = _today()
     initial = {
-        "start_date": _add_months(_today(), 1, _today().day),
-        "payment_due_day": settings.default_payment_due_day,
+        "start_date": today,
+        "payment_due_day": min(today.day, 28),
         "interest_rate": settings.default_interest_rate,
         "calculation_mode": "B",
     }
