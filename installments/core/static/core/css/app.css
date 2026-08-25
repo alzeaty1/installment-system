@@ -358,3 +358,4 @@ body.theme-dark .modal-content { background:#0d1530; color:var(--ink); }
 /* Dark chart panel (reports) */
 .chart-dark { background: linear-gradient(135deg, #0b0f2e 0%, #1a2150 100%); border-radius: 18px; }
 .chart-dark .card-body { padding: 1.25rem 1.5rem; }
+body.theme-dark .chart-dark { background: var(--surface); border: 1px solid var(--line); }
