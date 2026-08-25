@@ -41,24 +41,7 @@
         <div class="col-6 col-md-4"><div class="text-muted small">عدد الأقساط</div><div class="fw-bold">{{ contract.months_count }}</div></div>
         <div class="col-6 col-md-4"><div class="text-muted small">المدفوع</div><div class="fw-bold money text-success">{{  total_paid|mask_money }}</div></div>
         <div class="col-6 col-md-4"><div class="text-muted small">الباقي</div><div class="fw-bold money text-danger">{{ total_remaining|mask_money }}</div></div>
-      </div>
-
-      <!-- Progress Bar -->
-      <div class="mb-4">
-        <div class="d-flex justify-content-between small mb-1">
-          <span>التقدم — {{ total_paid|mask_money }} / {{  contract.total_amount|mask_money }}</span>
-          <span>{{ paid_count }} / {{ total_count }} قسط مدفوع ({{ contract.progress_percentage }}%)</span>
-        </div>
-        <div class="progress bg-light">
-          {% with pct=contract.progress_percentage %}
-          <div class="progress-bar 
-            {% if pct >= 100 %}bg-success
-            {% elif pct >= 80 %}bg-info
-            {% elif pct >= 50 %}bg-warning
-            {% else %}bg-danger{% endif %}
-            " style="width: {{ pct }}%;">{{ pct }}%</div>
-          {% endwith %}
-        </div>
+        <div class="col-6 col-md-4"><div class="text-muted small">الأقساط المدفوعة</div><div class="fw-bold">{{ paid_count }} / {{ total_count }} قسط</div></div>
       </div>
     </div>
   </div>
