@@ -39,21 +39,7 @@
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="mb-0">جدول الأقساط</h5>
-      <div class="text-muted small">{{ paid_count }} / {{ total_count }} مدفوع</div>
-    </div>
-    <div class="progress bg-light mb-3" style="height: 20px; border-radius: 10px;">
-      {% with pct=contract.progress_percentage %}
-      <div class="progress-bar 
-        {% if pct >= 100 %}bg-success
-        {% elif pct >= 80 %}bg-info
-        {% elif pct >= 50 %}bg-warning
-        {% else %}bg-danger{% endif %}
-        " style="width: {{ pct }}%;">{{ pct }}%</div>
-      {% endwith %}
-    </div>
-    <div class="d-flex justify-content-between small text-muted mb-2">
-      <span>المدفوع: {{ total_paid|mask_money }} / {{  contract.total_amount|mask_money }}</span>
-      <span>({{ contract.progress_percentage }}%)</span>
+      <div class="text-muted small">المدفوع: <strong class="money">{{ total_paid|mask_money }}</strong> من {{ contract.total_amount|mask_money }} ({{ paid_count }} / {{ total_count }} قسط)</div>
     </div>
     <div class="table-responsive">
       <table class="table">
