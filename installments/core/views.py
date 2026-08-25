@@ -869,6 +869,58 @@ def dashboard(request):
     )
     total_profit = (profit_data["total_price"] - profit_data["total_cost"]) + profit_data["total_interest"]
 
+    # ── Health cards context ─────────────────────────────────────────
+    total_invested_val = _sum(contracts, "actual_cost")
+    total_collected_val = _sum(installments, "paid_amount")
+    outstanding = max(total_invested_val - total_collected_val, MONEY_ZERO)
+    recovery_pct = int(round(100 * float(total_collected_val) / float(total_invested_val))) if total_invested_val else 0
+
+    # collection trend: this month vs last month (by paid_date)
+    first_of_month = today.replace(day=1)
+    last_month_end = first_of_month - timedelta(days=1)
+    collected_cur = installments.filter(
+        paid_date__gte=first_of_month,
+        paid_date__lte=today,
+    ).aggregate(s=Sum("paid_amount", default=MONEY_ZERO))["s"]
+    collected_prev = installments.filter(
+        paid_date__year=last_month_end.year,
+        paid_date__month=last_month_end.month,
+    ).aggregate(s=Sum("paid_amount", default=MONEY_ZERO))["s"]
+    if collected_prev and float(collected_prev) > 0:
+        trend_pct = int(round(100 * (float(collected_cur) - float(collected_prev)) / float(collected_prev)))
+    else:
+        trend_pct = None
+
+    # best month ever (by paid_date)
+    best_month = (
+        installments.filter(paid_date__isnull=False)
+        .annotate(m=TruncMonth("paid_date"))
+        .values("m")
+        .annotate(t=Sum("paid_amount"))
+        .order_by("-t")
+        .first()
+    )
+
+    # realized vs expected profit: per-contract margin share of what's actually paid
+    realized_profit = MONEY_ZERO
+    expected_remaining_profit = MONEY_ZERO
+    margin_sum = Decimal("0")
+    margin_n = 0
+    for c in contracts.exclude(status=Contract.STATUS_CANCELLED):
+        c_total = c.total_amount or MONEY_ZERO
+        c_cost = c.actual_cost or MONEY_ZERO
+        margin = c_total - c_cost + (c.total_interest or MONEY_ZERO)
+        if c_total > 0:
+            margin_sum += 100 * margin / c_total
+            margin_n += 1
+        paid = _sum(c.installments.all(), "paid_amount") if hasattr(c, "installments") else MONEY_ZERO
+        paid = min(paid, c_total)
+        realized_profit += (margin * paid / c_total) if c_total > 0 else MONEY_ZERO
+        expected_remaining_profit += max(margin - (margin * paid / c_total if c_total > 0 else MONEY_ZERO), MONEY_ZERO)
+    avg_margin_pct = int(round(float(margin_sum) / margin_n)) if margin_n else 0
+
+    status_counts_raw = dict(contracts.values_list("status").annotate(n=Count("id")))
+
     # Recent payments should mean latest payment actions, not highest paid_date.
     # A payment can be recorded with a future/old paid_date, so use ActivityLog.created_at.
     recent_payment_logs = list(
@@ -930,6 +982,18 @@ def dashboard(request):
         "overdue_count": overdue_count,
         "total_invested": _sum(contracts, "actual_cost"),
         "total_collected": _sum(installments, "paid_amount"),
+        # health cards
+        "outstanding": outstanding,
+        "recovery_pct": recovery_pct,
+        "trend_pct": trend_pct,
+        "collected_cur_month": collected_cur or MONEY_ZERO,
+        "collected_prev_month": collected_prev or MONEY_ZERO,
+        "best_month": best_month,
+        "realized_profit": realized_profit,
+        "expected_remaining_profit": expected_remaining_profit,
+        "avg_margin_pct": avg_margin_pct,
+        "status_counts_raw": status_counts_raw,
+        "repeat_customers": Customer.objects.filter(account=request.current_account).annotate(n=Count("contract")).filter(n__gt=1).count(),
         "total_profit": total_profit,
         "total_customers": Customer.objects.filter(account=request.current_account).count(),
         "total_contracts": contracts.count(),

@@ -111,34 +111,38 @@
   </div>
 </div>
 
-<!-- Row 2: Financial Overview -->
+<!-- Row 2: Financial Overview (clickable → details modal) -->
 <div class="row g-3 mb-4">
   <div class="col-md-3">
-    <div class="card stat border-0 shadow-sm">
+    <div class="card stat border-0 shadow-sm metric-clickable" data-bs-toggle="modal" data-bs-target="#mInvested">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-pie-chart fs-1 text-secondary opacity-75"></i>
-        <div><div class="text-muted small">إجمالي المستثمر</div><div class="h5 mb-0 money">{{  total_invested|mask_money }}</div></div>
+        <div><div class="text-muted small">إجمالي المستثمر</div><div class="h5 mb-0 money">{{ total_invested|mask_money }}</div>
+        <div class="small text-muted">مسترد {{ recovery_pct }}%</div></div>
       </div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="card stat border-0 shadow-sm">
+    <div class="card stat border-0 shadow-sm metric-clickable" data-bs-toggle="modal" data-bs-target="#mCollected">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-wallet2 fs-1 text-success opacity-75"></i>
-        <div><div class="text-muted small">إجمالي المحصل</div><div class="h5 mb-0 money">{{  total_collected|mask_money }}</div></div>
+        <div><div class="text-muted small">إجمالي المحصل</div><div class="h5 mb-0 money">{{ total_collected|mask_money }}</div>
+          {% if trend_pct is not None %}{% if trend_pct >= 0 %}<div class="small text-success">↑ {{ trend_pct }}% عن الشهر اللي فات</div>{% else %}<div class="small text-danger">↓ {{ trend_pct }}% عن الشهر اللي فات</div>{% endif %}{% endif %}
+        </div>
       </div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="card stat border-0 shadow-sm">
+    <div class="card stat border-0 shadow-sm metric-clickable" data-bs-toggle="modal" data-bs-target="#mProfit">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-graph-up-arrow fs-1 text-primary opacity-75"></i>
-        <div><div class="text-muted small">إجمالي الربح</div><div class="h5 mb-0 money">{{  total_profit|mask_money }}</div></div>
+        <div><div class="text-muted small">إجمالي الربح</div><div class="h5 mb-0 money">{{ total_profit|mask_money }}</div>
+        <div class="small text-muted">هامش ~{{ avg_margin_pct }}%</div></div>
       </div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="card stat border-0 shadow-sm">
+    <div class="card stat border-0 shadow-sm metric-clickable" data-bs-toggle="modal" data-bs-target="#mContracts">
       <div class="card-body d-flex align-items-center gap-3">
         <i class="bi bi-building fs-1 text-info opacity-75"></i>
         <div><div class="text-muted small">إجمالي العقود / العملاء</div><div class="h5 mb-0">{{ total_contracts }} عقد / {{ total_customers }} عميل</div></div>
@@ -197,5 +201,79 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- ═══ Health Details Modals ═══ -->
+
+<!-- Invested -->
+<div class="modal fade" id="mInvested" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header py-2"><h6 class="modal-title">💼 تفاصيل إجمالي المستثمر</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <table class="table table-sm mb-3">
+        <tbody>
+          <tr><td>إجمالي المستثمر (تكلفة البضاعة)</td><td class="text-start money fw-bold">{{ total_invested|mask_money }}</td></tr>
+          <tr><td>المحصل منه</td><td class="text-start money text-success">{{ total_collected|mask_money }}</td></tr>
+          <tr><td class="fw-bold">الرصيد القائم (في الشارع)</td><td class="text-start money fw-bold text-danger">{{ outstanding|mask_money }}</td></tr>
+        </tbody>
+      </table>
+      <div class="progress" style="height:10px;"><div class="progress-bar bg-success" style="width: {% if recovery_pct > 100 %}100{% else %}{{ recovery_pct }}{% endif %}%;"></div></div>
+      <div class="small text-muted mt-1">نسبة الاسترداد: {{ recovery_pct }}% من رأس المال المستثمر</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- Collected -->
+<div class="modal fade" id="mCollected" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header py-2"><h6 class="modal-title">💰 تفاصيل التحصيل</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <table class="table table-sm mb-3">
+        <tbody>
+          <tr><td>هذا الشهر (حتى اليوم)</td><td class="text-start money fw-bold">{{ collected_cur_month|mask_money }}</td></tr>
+          <tr><td>الشهر اللي فات (كامل)</td><td class="text-start money">{{ collected_prev_month|mask_money }}</td></tr>
+          {% if best_month %}<tr><td>أعلى شهر تحصيل</td><td class="text-start money text-success">{{ best_month.t|mask_money }} <span class="small text-muted">({{ best_month.m|date:"m/Y" }})</span></td></tr>{% endif %}
+          <tr><td class="fw-bold">الإجمالي منذ البداية</td><td class="text-start money fw-bold">{{ total_collected|mask_money }}</td></tr>
+        </tbody>
+      </table>
+      {% if trend_pct is not None %}{% if trend_pct >= 0 %}<div class="alert alert-success py-2 mb-0 small">📈 التحصيل أعلى بـ {{ trend_pct }}% من الشهر اللي فات</div>{% else %}<div class="alert alert-danger py-2 mb-0 small">📉 التحصيل أقل بـ {{ trend_pct }}% من الشهر اللي فات — راجع المتأخرات</div>{% endif %}{% endif %}
+    </div>
+  </div></div>
+</div>
+
+<!-- Profit -->
+<div class="modal fade" id="mProfit" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header py-2"><h6 class="modal-title">📈 تفاصيل الربح</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <table class="table table-sm mb-3">
+        <tbody>
+          <tr><td>الربح المتوقع الكامل (لو كل العقود اتحسبت)</td><td class="text-start money">{{ total_profit|mask_money }}</td></tr>
+          <tr><td class="fw-bold text-success">محصل فعليًا (مع الأقساط المدفوعة)</td><td class="text-start money fw-bold text-success">{{ realized_profit|mask_money }}</td></tr>
+          <tr><td>متوقع لسه (مش دخل جيبك بعد)</td><td class="text-start money text-muted">{{ expected_remaining_profit|mask_money }}</td></tr>
+        </tbody>
+      </table>
+      <div class="small text-muted">متوسط هامش العقد: ~{{ avg_margin_pct }}% من قيمة الصفقة. الربح "الحقيقي" هو المحصل فعليًا — الباقي بيتحقق مع كل قسط.</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- Contracts / Customers -->
+<div class="modal fade" id="mContracts" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header py-2"><h6 class="modal-title">🤝 توزيع العقود والعملاء</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="d-flex flex-column gap-2 mb-3">
+        <div class="d-flex justify-content-between"><span>🟢 نشط</span><strong>{{ status_counts_raw.active|default:0 }}</strong></div>
+        <div class="d-flex justify-content-between"><span>🔴 متأخر</span><strong class="text-danger">{{ status_counts_raw.overdue|default:0 }}</strong></div>
+        <div class="d-flex justify-content-between"><span>✅ مكتمل</span><strong>{{ status_counts_raw.completed|default:0 }}</strong></div>
+        {% if status_counts_raw.early_completed %}<div class="d-flex justify-content-between"><span>🔒 مكتمل (إغلاق مبكر)</span><strong>{{ status_counts_raw.early_completed }}</strong></div>{% endif %}
+        {% if status_counts_raw.cancelled %}<div class="d-flex justify-content-between"><span>⛔ ملغي</span><strong>{{ status_counts_raw.cancelled }}</strong></div>{% endif %}
+        <hr class="my-1">
+        <div class="d-flex justify-content-between"><span>🔁 عملاء متكررين (أكتر من عقد)</span><strong>{{ repeat_customers }} / {{ total_customers }}</strong></div>
+      </div>
+      <a href="{% url 'core:contract_list' %}" class="btn btn-sm btn-outline-primary w-100">عرض كل العقود</a>
+    </div>
+  </div></div>
 </div>
 {% endblock %}
