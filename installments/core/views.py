@@ -1973,7 +1973,53 @@ def reports_dashboard(request):
     contracts = Contract.objects.filter(account=request.current_account)
     installments = Installment.objects.filter(account=request.current_account)
     expenses = Expense.objects.filter(account=request.current_account)
-    return render(request, "core/reports_index.html", {"contracts_count": contracts.count(), "total_invested": _sum(contracts, "actual_cost"), "total_collected": _sum(installments, "paid_amount"), "total_expenses": _sum(expenses, "amount"), "total_profit": sum((_contract_profit(c) for c in contracts), MONEY_ZERO)})
+
+    # ── 12-month series: collections vs new financing ──
+    today = _today()
+    months = []
+    cursor = today.replace(day=1)
+    for _ in range(12):
+        months.insert(0, (cursor.year, cursor.month))
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+
+    collected_by_month = dict(
+        installments.filter(paid_date__isnull=False)
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m")
+        .annotate(t=Sum("paid_amount"))
+    )
+    financed_by_month = dict(
+        contracts.filter(start_date__isnull=False)
+        .annotate(m=TruncMonth("start_date"))
+        .values_list("m")
+        .annotate(t=Sum("total_amount"))
+    )
+
+    AR_MONTHS = ["", "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+                 "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
+    labels, series_collected, series_financed = [], [], []
+    for y, m in months:
+        key = f"{y}-{m:02d}"
+        labels.append(f"{AR_MONTHS[m]} {str(y)[2:]}")
+        series_collected.append(float(collected_by_month.get(datetime_from_month(y, m), 0) or 0))
+        series_financed.append(float(financed_by_month.get(datetime_from_month(y, m), 0) or 0))
+
+    return render(request, "core/reports_index.html", {
+        "contracts_count": contracts.count(),
+        "total_invested": _sum(contracts, "actual_cost"),
+        "total_collected": _sum(installments, "paid_amount"),
+        "total_expenses": _sum(expenses, "amount"),
+        "total_profit": sum((_contract_profit(c) for c in contracts), MONEY_ZERO),
+        "chart_labels_json": json.dumps(labels, ensure_ascii=False),
+        "chart_collected_json": json.dumps(series_collected),
+        "chart_financed_json": json.dumps(series_financed),
+    })
+
+
+def datetime_from_month(year, month):
+    """First day of a month as date — used as TruncMonth dict key (SQLite returns date)."""
+    import datetime as _dt
+    return _dt.date(year, month, 1)
 
 
 @require_write

@@ -1,8 +1,152 @@
 ﻿{% extends 'core/base.html' %}
 {% block title %}التقارير{% endblock %}
 {% block content %}
-<h2 class="mb-3">التقارير</h2>
-<div class="row g-3 mb-4"><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">عدد العقود</div><div class="h4">{{ contracts_count }}</div></div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المستثمر</div><div class="h5 money">{{  total_invested|mask_money }}</div></div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المحصل</div><div class="h5 money">{{  total_collected|mask_money }}</div></div></div></div><div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المصروفات</div><div class="h5 money">{{  total_expenses|mask_money }}</div></div></div></div></div>
-<div class="row g-3"><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:profit_report' %}"><div class="card-body"><h5>تقرير الأرباح</h5><p class="mb-0 money">{{  total_profit|mask_money }}</p></div></a></div><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:investment_report' %}"><div class="card-body"><h5>الاستثمار والتحصيل</h5><p class="mb-0">رأس المال والعائد</p></div></a></div><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:suppliers_report' %}"><div class="card-body"><h5>مقارنة التجار</h5><p class="mb-0">إجمالي الشراء لكل تاجر</p></div></a></div><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:monthly_report' %}"><div class="card-body"><h5>الملخص الشهري</h5><p class="mb-0">تحصيل ومصروفات</p></div></a></div><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:overdue_report' %}"><div class="card-body"><h5>تقرير المتأخرات</h5><p class="mb-0">تصفية الأقساط المتأخرة</p></div></a></div><div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:overdue_export_edit' %}"><div class="card-body"><h5>نسخة المتأخرات للعميل</h5><p class="mb-0">تعديل مؤقت للطباعة فقط</p></div></a></div></div>
+<div class="page-heading">
+  <div>
+    <h2>التقارير</h2>
+    <p class="page-subtitle">نظرة شاملة على أداء المشروع: تحصيل، تمويل، أرباح ومتأخرات.</p>
+  </div>
+</div>
+
+<!-- ── KPI cards ── -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">عدد العقود</div><div class="h4">{{ contracts_count }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المستثمر</div><div class="h5 money">{{ total_invested|mask_money }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المحصل</div><div class="h5 money">{{ total_collected|mask_money }}</div></div></div></div>
+  <div class="col-md-3"><div class="card stat"><div class="card-body"><div class="text-muted">المصروفات</div><div class="h5 money">{{ total_expenses|mask_money }}</div></div></div></div>
+</div>
+
+<!-- ── Performance chart (site palette) ── -->
+<div class="card stat border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+      <h5 class="mb-0"><i class="bi bi-graph-up-arrow ms-2 text-primary"></i>أداء التحصيل والتمويل — آخر 12 شهر</h5>
+      <div class="d-flex gap-3 small text-muted">
+        <span><span class="chart-dot" style="background:#288AEE;"></span> التحصيل الشهري</span>
+        <span><span class="chart-dot" style="background:#4B5694;"></span> التمويل الجديد</span>
+      </div>
+    </div>
+    <div style="position:relative; height:320px;">
+      <canvas id="performanceChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ── Report links ── -->
+<div class="row g-3">
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:profit_report' %}"><div class="card-body"><h5>تقرير الأرباح</h5><p class="mb-0 money">{{ total_profit|mask_money }}</p></div></a></div>
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:investment_report' %}"><div class="card-body"><h5>الاستثمار والتحصيل</h5><p class="mb-0">رأس المال والعائد</p></div></a></div>
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:suppliers_report' %}"><div class="card-body"><h5>مقارنة التجار</h5><p class="mb-0">إجمالي الشراء لكل تاجر</p></div></a></div>
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:monthly_report' %}"><div class="card-body"><h5>الملخص الشهري</h5><p class="mb-0">تحصيل ومصروفات</p></div></a></div>
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:overdue_report' %}"><div class="card-body"><h5>تقرير المتأخرات</h5><p class="mb-0">تصفية الأقساط المتأخرة</p></div></a></div>
+  <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:overdue_export_edit' %}"><div class="card-body"><h5>نسخة المتأخرات للعميل</h5><p class="mb-0">تعديل مؤقت للطباعة فقط</p></div></a></div>
+</div>
 {% endblock %}
 
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var css = getComputedStyle(document.documentElement);
+  var C = {
+    brand:   css.getPropertyValue('--brand').trim()        || '#111844',
+    accent:  css.getPropertyValue('--accent').trim()       || '#288AEE',
+    deep:    css.getPropertyValue('--accent-deep').trim()  || '#4B5694',
+    ink:     css.getPropertyValue('--ink').trim()          || '#111844',
+    muted:   css.getPropertyValue('--muted').trim()        || '#5b6791',
+    line:    css.getPropertyValue('--line').trim()         || '#dbd8cc'
+  };
+
+  var labels    = {{ chart_labels_json|safe }};
+  var collected = {{ chart_collected_json|safe }};
+  var financed  = {{ chart_financed_json|safe }};
+
+  var ctx = document.getElementById('performanceChart');
+  if (!ctx) return;
+
+  // gradient fill under the collection line (accent color)
+  var grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 320);
+  grad.addColorStop(0, 'rgba(40, 138, 238, 0.28)');
+  grad.addColorStop(1, 'rgba(40, 138, 238, 0.02)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'التحصيل الشهري',
+          data: collected,
+          borderColor: C.accent,
+          backgroundColor: grad,
+          fill: true,
+          tension: 0.45,
+          borderWidth: 3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: C.accent,
+          pointBorderWidth: 2
+        },
+        {
+          label: 'التمويل الجديد',
+          data: financed,
+          borderColor: C.deep,
+          backgroundColor: 'transparent',
+          fill: false,
+          tension: 0.45,
+          borderWidth: 2.5,
+          borderDash: [6, 4],
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: C.deep,
+          pointBorderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          rtl: true,
+          backgroundColor: C.brand,
+          padding: 12,
+          cornerRadius: 10,
+          titleFont: { size: 13, weight: 'bold' },
+          bodyFont: { size: 13 },
+          callbacks: {
+            label: function (c) {
+              return ' ' + c.dataset.label + ': ' +
+                Number(c.parsed.y).toLocaleString('ar-EG') + ' ج';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: C.muted, font: { size: 12 }, maxRotation: 0 }
+        },
+        y: {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { color: C.line, lineWidth: 1 },
+          ticks: {
+            color: C.muted,
+            font: { size: 11 },
+            callback: function (v) {
+              if (v >= 1000) return (v / 1000).toLocaleString('ar-EG') + ' ألف';
+              return v.toLocaleString('ar-EG');
+            }
+          }
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

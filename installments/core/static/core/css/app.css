@@ -351,3 +351,6 @@ body.theme-dark .modal-content { background:#0d1530; color:var(--ink); }
 /* Clickable dashboard metric cards */
 .metric-clickable { transition: transform .15s ease, box-shadow .15s ease; }
 .metric-clickable:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.12) !important; cursor: pointer; }
+
+/* Reports chart */
+.chart-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-left:4px; vertical-align:middle; }
