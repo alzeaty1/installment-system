@@ -17,16 +17,17 @@
 </div>
 
 <!-- ── Performance chart (site palette) ── -->
-<div class="card stat border-0 shadow-sm mb-4">
+<!-- ── Performance chart (dark panel, site palette) ── -->
+<div class="card stat border-0 shadow-sm mb-4 chart-dark">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-      <h5 class="mb-0"><i class="bi bi-graph-up-arrow ms-2 text-primary"></i>أداء التحصيل والتمويل</h5>
-      <div class="d-flex gap-3 small text-muted align-items-center flex-wrap">
-        <span><span class="chart-dot" style="background:#288AEE;"></span> التحصيل الشهري</span>
-        <span><span class="chart-dot" style="background:#4B5694;"></span> التمويل الجديد</span>
+      <h5 class="mb-0 text-white"><i class="bi bi-graph-up-arrow ms-2"></i>أداء التحصيل والتمويل</h5>
+      <div class="d-flex gap-3 small align-items-center flex-wrap">
+        <span style="color:#c8d0e4;"><span class="chart-dot" style="background:#288AEE;"></span> التحصيل الشهري</span>
+        <span style="color:#c8d0e4;"><span class="chart-dot" style="background:#EAE0CF;"></span> التمويل الجديد</span>
         <div class="btn-group btn-group-sm" role="group">
           {% for m, label in chart_ranges %}
-          <a href="?months={{ m }}" class="btn {% if chart_months == m %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+          <a href="?months={{ m }}" class="btn {% if chart_months == m %}btn-light{% else %}btn-outline-light{% endif %}">{{ label }}</a>
           {% endfor %}
         </div>
       </div>
@@ -82,30 +83,29 @@
         {
           label: 'التحصيل الشهري',
           data: collected,
-          borderColor: C.accent,
+          borderColor: '#288AEE',
           backgroundColor: grad,
           fill: true,
           tension: 0.45,
           borderWidth: 4,
           pointRadius: 3.5,
           pointHoverRadius: 7,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: C.accent,
+          pointBackgroundColor: '#0b0f2e',
+          pointBorderColor: '#288AEE',
           pointBorderWidth: 2.5
         },
         {
           label: 'التمويل الجديد',
           data: financed,
-          borderColor: C.deep,
-          backgroundColor: 'transparent',
+          borderColor: '#EAE0CF',
+          backgroundColor: 'rgba(234, 224, 207, 0.08)',
           fill: false,
           tension: 0.45,
           borderWidth: 3.5,
-          borderDash: [7, 5],
           pointRadius: 3.5,
           pointHoverRadius: 7,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: C.deep,
+          pointBackgroundColor: '#0b0f2e',
+          pointBorderColor: '#EAE0CF',
           pointBorderWidth: 2.5
         }
       ]
@@ -118,7 +118,9 @@
         legend: { display: false },
         tooltip: {
           rtl: true,
-          backgroundColor: C.brand,
+          backgroundColor: '#288AEE',
+          titleColor: '#0b0f2e',
+          bodyColor: '#ffffff',
           padding: 12,
           cornerRadius: 10,
           titleFont: { size: 13, weight: 'bold' },
@@ -134,14 +136,14 @@
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: C.muted, font: { size: 12 }, maxRotation: 0 }
+          ticks: { color: '#c8d0e4', font: { size: 12 }, maxRotation: 0 }
         },
         y: {
           beginAtZero: true,
           border: { display: false },
-          grid: { color: C.line, lineWidth: 1 },
+          grid: { color: 'rgba(200, 208, 228, 0.14)', lineWidth: 1 },
           ticks: {
-            color: C.muted,
+            color: '#c8d0e4',
             font: { size: 11 },
             callback: function (v) {
               if (v >= 1000) return (v / 1000).toLocaleString('ar-EG') + ' ألف';
