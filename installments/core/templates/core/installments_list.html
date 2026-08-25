@@ -1,7 +1,7 @@
 {% extends 'core/base.html' %}
 {% block title %}الأقساط{% endblock %}
 {% block content %}
-<h2 class="mb-4">{{ title|default:"قائمة الأقساط" }}</h2>
+<h2 class="mb-4">{% firstof page_title title "قائمة الأقساط" %}</h2>
 
 <div class="card stat border-0 shadow-sm mb-4">
   <div class="card-body">

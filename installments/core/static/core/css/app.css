@@ -347,3 +347,7 @@ body.theme-dark .modal-content { background:#0d1530; color:var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
 }
+
+/* Clickable dashboard metric cards */
+.metric-clickable { transition: transform .15s ease, box-shadow .15s ease; }
+.metric-clickable:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.12) !important; cursor: pointer; }

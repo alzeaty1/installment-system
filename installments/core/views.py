@@ -1220,14 +1220,29 @@ def contract_list(request):
     _mark_late_installments()
     status = request.GET.get("status", "")
     customer_id = request.GET.get("customer", "")
+    created_this_month = request.GET.get("created_this_month", "")
+    completed_this_month = request.GET.get("completed_this_month", "")
     contracts = Contract.objects.filter(account=request.current_account).select_related("customer", "product").order_by("-created_at")
     if status:
         contracts = contracts.filter(status=status)
     if customer_id:
         contracts = contracts.filter(customer_id=customer_id)
+    today = _today()
+    page_title, subtitle = "العقود", "إدارة العقود، الحالة، نوع المنتج والموديل."
+    if created_this_month:
+        contracts = contracts.filter(created_at__year=today.year, created_at__month=today.month)
+        page_title, subtitle = "عقود جديدة هذا الشهر", f"عقود اتسجلت خلال {today.strftime('%m/%Y')}."
+    if completed_this_month:
+        contracts = contracts.filter(
+            status__in=[Contract.STATUS_COMPLETED, Contract.STATUS_EARLY_COMPLETED],
+            updated_at__year=today.year, updated_at__month=today.month,
+        )
+        if not status:
+            contracts = contracts.exclude(status=Contract.STATUS_CANCELLED)
+        page_title, subtitle = "عقود مكتملة هذا الشهر", f"عقود اكتملت خلال {today.strftime('%m/%Y')}."
     paginator = Paginator(contracts, 25)
     page = paginator.get_page(request.GET.get("page"))
-    return render(request, "core/contracts_list.html", {"contracts": page, "customers": Customer.objects.filter(account=request.current_account).order_by("name"), "status": status, "customer_id": customer_id})
+    return render(request, "core/contracts_list.html", {"contracts": page, "customers": Customer.objects.filter(account=request.current_account).order_by("name"), "status": status, "customer_id": customer_id, "page_title": page_title, "page_subtitle": subtitle})
 
 
 def _contract_form_context(form, title, is_create, account=None):
@@ -1569,19 +1584,32 @@ def contract_delete(request, id):
 
 def installment_list(request):
     _mark_late_installments()
-    installments = Installment.objects.filter(account=request.current_account).select_related("contract", "contract__customer").order_by("due_date")
+    installments = (
+        Installment.objects.filter(account=request.current_account)
+        .select_related("contract", "contract__customer")
+        .exclude(status=Installment.STATUS_CLOSED)
+        .order_by("due_date")
+    )
     status = request.GET.get("status", "")
     date_from = request.GET.get("from", "")
     date_to = request.GET.get("to", "")
+    month_current = request.GET.get("month", "") == "current"
     if status:
         installments = installments.filter(status=status)
+    today = _today()
+    page_title = "الأقساط"
+    if month_current:
+        installments = installments.filter(due_date__year=today.year, due_date__month=today.month)
+        date_from = today.replace(day=1).isoformat()
+        date_to = today.isoformat()
+        page_title = f"أقساط {today.strftime('%B %Y')}"
     if date_from:
         installments = installments.filter(due_date__gte=date_from)
     if date_to:
         installments = installments.filter(due_date__lte=date_to)
     paginator = Paginator(installments, 50)
     page = paginator.get_page(request.GET.get("page"))
-    return render(request, "core/installments_list.html", {"installments": page, "status": status, "date_from": date_from, "date_to": date_to})
+    return render(request, "core/installments_list.html", {"installments": page, "status": status, "date_from": date_from, "date_to": date_to, "page_title": page_title})
 
 
 def _apply_payment(contract, amount, pay_date, payment_method="", receiver=None, received_by="", sender_account="", sender_name="", transfer_image=None, notes=""):
