@@ -7,7 +7,7 @@ from django import forms
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, F, Max, Q, Sum
+from django.db.models import Count, F, Max, Min, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
@@ -70,6 +70,13 @@ DAY_FIELD_NAMES = {"payment_due_day", "default_payment_due_day"}
 
 def _sum(queryset, field):
     return queryset.aggregate(total=Sum(field, default=MONEY_ZERO))["total"] or MONEY_ZERO
+
+
+def _invested_total(contracts):
+    """المستثمر = سعر العميل − المقدم (المبلغ الفعلي في الشارع)."""
+    return contracts.aggregate(
+        total=Sum(F("customer_price") - F("down_payment"), default=MONEY_ZERO)
+    )["total"] or MONEY_ZERO
 
 
 def _remaining_installments_total(queryset):
@@ -871,7 +878,7 @@ def dashboard(request):
     total_profit = (profit_data["total_price"] - profit_data["total_cost"]) + profit_data["total_interest"]
 
     # ── Health cards context ─────────────────────────────────────────
-    total_invested_val = _sum(contracts, "actual_cost")
+    total_invested_val = _invested_total(contracts)
     total_collected_val = _sum(installments, "paid_amount")
     outstanding = max(total_invested_val - total_collected_val, MONEY_ZERO)
     recovery_pct = int(round(100 * float(total_collected_val) / float(total_invested_val))) if total_invested_val else 0
@@ -989,7 +996,7 @@ def dashboard(request):
         "total_cancelled": contracts.filter(status=Contract.STATUS_CANCELLED).count(),
         "due_today_count": due_today.count(),
         "overdue_count": overdue_count,
-        "total_invested": _sum(contracts, "actual_cost"),
+        "total_invested": _invested_total(contracts),
         "total_collected": _sum(installments, "paid_amount"),
         # health cards
         "outstanding": outstanding,
@@ -2030,12 +2037,22 @@ def reports_dashboard(request):
         .values_list("m")
         .annotate(t=Sum("paid_amount"))
     )
-    financed_by_month = dict(
-        contracts.filter(start_date__isnull=False)
-        .annotate(m=TruncMonth("start_date"))
-        .values_list("m")
-        .annotate(t=Sum("total_amount"))
-    )
+    # التمويل الشهري = سعر العميل − المقدم، مجمعًا حسب شهر البيع.
+    # شهر البيع = أول قسط مستحق ناقص شهر (أول قسط يُدفع بعد شهر من الشراء).
+    financed_by_month = {}
+    for row in (
+        contracts.annotate(first_due=Min("installments__due_date"))
+        .values("customer_price", "down_payment", "first_due")
+    ):
+        if not row["first_due"]:
+            continue
+        fd = row["first_due"]
+        sale = datetime_from_month(fd.year - 1, 12) if fd.month == 1 else datetime_from_month(fd.year, fd.month - 1)
+        financed_by_month[sale] = (
+            financed_by_month.get(sale, MONEY_ZERO)
+            + (row["customer_price"] or MONEY_ZERO)
+            - (row["down_payment"] or MONEY_ZERO)
+        )
 
     AR_MONTHS = ["", "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
                  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
@@ -2077,7 +2094,7 @@ def reports_dashboard(request):
 
     return render(request, "core/reports_index.html", {
         "contracts_count": contracts.count(),
-        "total_invested": _sum(contracts, "actual_cost"),
+        "total_invested": _invested_total(contracts),
         "total_collected": _sum(installments, "paid_amount"),
         "total_expenses": _sum(expenses, "amount"),
         "total_profit": sum((_contract_profit(c) for c in contracts), MONEY_ZERO),
@@ -2178,7 +2195,7 @@ def customer_statement_pdf(request, id):
 @require_write
 def investment_report(request):
     contracts = Contract.objects.filter(account=request.current_account).select_related("customer").order_by("-created_at")
-    return render(request, "core/reports_investment.html", {"contracts": contracts, "total_invested": _sum(contracts, "actual_cost"), "total_customer_price": _sum(contracts, "customer_price"), "total_collected": _sum(Installment.objects.filter(account=request.current_account), "paid_amount")})
+    return render(request, "core/reports_investment.html", {"contracts": contracts, "total_invested": _invested_total(contracts), "total_customer_price": _sum(contracts, "customer_price"), "total_collected": _sum(Installment.objects.filter(account=request.current_account), "paid_amount")})
 
 
 @require_write
