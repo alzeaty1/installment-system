@@ -2567,6 +2567,22 @@ def activity_log_list(request):
 def receiver_list(request):
     account = request.current_account
     paid = Installment.objects.filter(account=account, paid_amount__gt=0)
+    pay_month = request.GET.get("pay_month", "").strip()
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            paid = paid.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    pay_months = list(
+        Installment.objects.filter(
+            account=account, paid_amount__gt=0, paid_date__isnull=False
+        )
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
     cards = []
     for r in Receiver.objects.filter(account=account).order_by("name"):
         rpaid = paid.filter(receiver=r)
@@ -2599,7 +2615,7 @@ def receiver_list(request):
                 .order_by("-m")
             ),
         }
-    return render(request, "core/receivers/receiver_list.html", {"cards": cards, "unassigned": unassigned})
+    return render(request, "core/receivers/receiver_list.html", {"cards": cards, "unassigned": unassigned, "pay_month": pay_month, "pay_months": pay_months})
 
 
 @require_write
