@@ -490,6 +490,47 @@ class Installment(models.Model):
         return f"{self.contract} - {self.installment_number}"
 
 
+class Payment(models.Model):
+    """دفعة واحدة على قسط — كل دفعة صف مستقل بطريقتها وتاريخها ومستلمها."""
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
+    installment = models.ForeignKey(Installment, on_delete=models.CASCADE, related_name="payments", verbose_name="القسط")
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=MONEY_VALIDATORS,
+        verbose_name="المبلغ",
+    )
+    payment_method = models.CharField(
+        max_length=20,
+        choices=Installment.PAYMENT_METHOD_CHOICES,
+        blank=True,
+        verbose_name="طريقة الدفع",
+    )
+    paid_date = models.DateField(null=True, blank=True, verbose_name="تاريخ الدفع")
+    receiver = models.ForeignKey(
+        "Receiver", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payments",
+        verbose_name="المستلم",
+    )
+    received_by = models.CharField(max_length=255, blank=True, verbose_name="المستلم (كاش)")
+    notes = models.TextField(blank=True, verbose_name="ملاحظات")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاريخ التسجيل")
+
+    class Meta:
+        verbose_name = "دفعة"
+        verbose_name_plural = "الدفعات"
+        ordering = ["paid_date", "created_at"]
+        indexes = [
+            models.Index(fields=["payment_method"]),
+            models.Index(fields=["paid_date"]),
+        ]
+
+    def __str__(self):
+        return f"{self.installment} - {self.amount}"
+
+
 class Expense(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, null=True, blank=True, verbose_name="الحساب")
     title = models.CharField(max_length=255, verbose_name="العنوان")

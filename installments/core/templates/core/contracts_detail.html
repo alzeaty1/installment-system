@@ -92,6 +92,20 @@
                 {% endif %}
               </td>
             </tr>
+            {% if installment.payments_list|length > 1 %}
+              {% for pay in installment.payments_list %}
+              <tr class="table-light">
+                <td></td>
+                <td class="small text-muted">↩ دفعة {{ forloop.counter }} — {{ pay.paid_date|date:"Y-m-d" }}</td>
+                <td></td>
+                <td class="money text-success small">{{ pay.amount|mask_money }}</td>
+                <td></td>
+                <td class="small">{{ pay.method_label }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+              {% endfor %}
+            {% endif %}
           {% empty %}
             <tr><td colspan="8">لا توجد أقساط.</td></tr>
           {% endfor %}
