@@ -2057,18 +2057,15 @@ def reports_dashboard(request):
             pay_month = ""
     method_labels = dict(Installment.PAYMENT_METHOD_CHOICES)
     method_cards = []
-    _grouped = {}
-    for p in payments_qs.select_related(
-        "installment", "installment__contract", "installment__contract__customer"
-    ).order_by("-paid_date", "-created_at"):
-        _grouped.setdefault(p.payment_method or "", []).append(p)
-    for code, plist in sorted(_grouped.items(), key=lambda kv: sum((x.amount for x in kv[1]), MONEY_ZERO), reverse=True):
+    for row in payments_qs.values("payment_method").annotate(
+        total=Sum("amount"), n=Count("id")
+    ).order_by("-total"):
+        code = row["payment_method"] or ""
         method_cards.append({
             "code": code,
             "label": method_labels.get(code, "غير محدد"),
-            "total": sum((x.amount for x in plist), MONEY_ZERO),
-            "n": len(plist),
-            "payments": plist,
+            "total": row["total"],
+            "n": row["n"],
         })
     pay_months = list(
         Payment.objects.filter(account=request.current_account, paid_date__isnull=False)
@@ -2092,6 +2089,54 @@ def reports_dashboard(request):
         "method_cards": method_cards,
         "pay_month": pay_month,
         "pay_months": pay_months,
+    })
+
+
+def method_payments(request):
+    """صفحة تفاصيل مدفوعات طريقة دفع واحدة: فلتر شهري + بحث."""
+    method_labels = dict(Installment.PAYMENT_METHOD_CHOICES)
+    method = request.GET.get("method", "").strip()
+    if method not in method_labels:
+        return redirect("core:reports_dashboard")
+    pay_month = request.GET.get("pay_month", "").strip()
+    query = request.GET.get("q", "").strip()
+    payments_qs = Payment.objects.filter(
+        account=request.current_account, payment_method=method
+    )
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            payments_qs = payments_qs.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    if query:
+        payments_qs = payments_qs.filter(
+            Q(installment__contract__contract_number__icontains=query)
+            | Q(installment__contract__customer__name__icontains=query)
+        )
+    payments = list(
+        payments_qs.select_related(
+            "installment", "installment__contract", "installment__contract__customer"
+        ).order_by("-paid_date", "-created_at")
+    )
+    pay_months = list(
+        Payment.objects.filter(
+            account=request.current_account, payment_method=method, paid_date__isnull=False
+        )
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
+    return render(request, "core/reports_method_payments.html", {
+        "method": method,
+        "method_label": method_labels[method],
+        "payments": payments,
+        "total": sum((p.amount for p in payments), MONEY_ZERO),
+        "count": len(payments),
+        "pay_month": pay_month,
+        "pay_months": pay_months,
+        "query": query,
     })
 
 

@@ -55,31 +55,15 @@
     </div>
     <div class="row g-3 mb-2">
       {% for card in method_cards %}
-      <div class="col-md-4"><div class="card stat"><div class="card-body">
+      <div class="col-md-4"><a class="card stat text-decoration-none text-dark" href="{% url 'core:method_payments' %}?method={{ card.code }}{% if pay_month %}&pay_month={{ pay_month }}{% endif %}"><div class="card-body">
         <div class="text-muted">{{ card.label }}</div>
         <div class="h5 money">{{ card.total|mask_money }}</div>
-        <div class="small text-muted">{{ card.n }} دفعة</div>
-      </div></div></div>
+        <div class="small text-muted">{{ card.n }} دفعة — اضغط للتفاصيل</div>
+      </div></a></div>
       {% empty %}
       <div class="col-12 text-muted text-center">لا توجد مدفوعات.</div>
       {% endfor %}
     </div>
-    {% for card in method_cards %}
-    <h6 class="mt-3">{{ card.label }} — <span class="money">{{ card.total|mask_money }}</span> <span class="small text-muted">({{ card.n }} دفعة)</span></h6>
-    <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-2">
-      <thead class="table-light"><tr><th>العقد</th><th>العميل</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
-      <tbody>
-        {% for p in card.payments %}
-        <tr>
-          <td>{{ p.installment.contract.contract_number }}</td>
-          <td>{{ p.installment.contract.customer.name }}</td>
-          <td class="money text-success">{{ p.amount|mask_money }}</td>
-          <td class="small">{{ p.paid_date|date:"Y-m-d" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
-    {% endfor %}
   </div>
 </div>
 
