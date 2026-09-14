@@ -13,6 +13,29 @@
   <a href="{% url 'core:receiver_list' %}" class="btn btn-outline-secondary">🔙 رجوع</a>
 </div>
 
+<div class="card stat border-0 shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">الشهر</label>
+        <select name="pay_month" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">كل الشهور</option>
+          {% for m in pay_months %}
+          <option value="{{ m|date:'Y-m' }}" {% if pay_month == m|date:'Y-m' %}selected{% endif %}>{{ m|date:'m/Y' }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small text-muted">بحث (اسم العميل أو رقم العقد)</label>
+        <input type="search" name="q" value="{{ query }}" class="form-control form-control-sm" placeholder="مثال: مبارك أو CON-000028">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-sm btn-primary w-100">بحث</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% if installments %}
 <div class="table-responsive">
   <table class="table table-bordered table-hover">

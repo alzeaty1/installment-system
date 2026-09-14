@@ -2697,26 +2697,97 @@ def activity_log_list(request):
 
 @require_write
 def receiver_list(request):
-    receivers = Receiver.objects.filter(
-        account=request.current_account
-    ).annotate(
-        total_received=Sum("installments__paid_amount"),
-        payment_count=Count("installments"),
-    ).order_by("-total_received")
-    return render(request, "core/receivers/receiver_list.html", {"receivers": receivers})
+    account = request.current_account
+    paid = Installment.objects.filter(account=account, paid_amount__gt=0)
+    pay_month = request.GET.get("pay_month", "").strip()
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            paid = paid.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    pay_months = list(
+        Installment.objects.filter(
+            account=account, paid_amount__gt=0, paid_date__isnull=False
+        )
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
+    cards = []
+    for r in Receiver.objects.filter(account=account).order_by("name"):
+        rpaid = paid.filter(receiver=r)
+        agg = rpaid.aggregate(t=Sum("paid_amount"), n=Count("id"))
+        months = list(
+            rpaid.filter(paid_date__isnull=False)
+            .annotate(m=TruncMonth("paid_date"))
+            .values("m")
+            .annotate(t=Sum("paid_amount"))
+            .order_by("-m")[:4]
+        )
+        cards.append({
+            "receiver": r,
+            "total": agg["t"] or MONEY_ZERO,
+            "n": agg["n"],
+            "months": months,
+        })
+    unassigned_qs = paid.filter(receiver__isnull=True)
+    unassigned_agg = unassigned_qs.aggregate(t=Sum("paid_amount"), n=Count("id"))
+    unassigned = None
+    if unassigned_agg["n"]:
+        unassigned = {
+            "total": unassigned_agg["t"] or MONEY_ZERO,
+            "n": unassigned_agg["n"],
+            "months": list(
+                unassigned_qs.filter(paid_date__isnull=False)
+                .annotate(m=TruncMonth("paid_date"))
+                .values("m")
+                .annotate(t=Sum("paid_amount"))
+                .order_by("-m")[:4]
+            ),
+        }
+    return render(request, "core/receivers/receiver_list.html", {"cards": cards, "unassigned": unassigned, "pay_month": pay_month, "pay_months": pay_months})
 
 
 @require_write
 def receiver_detail(request, pk):
     receiver = get_object_or_404(Receiver, pk=pk, account=request.current_account)
-    installments = receiver.installments.select_related(
-        "contract", "contract__customer"
-    ).order_by("-paid_date", "-due_date")
-    total = installments.aggregate(t=Sum("paid_amount"))["t"] or 0
+    qs = Installment.objects.filter(
+        account=request.current_account, receiver=receiver, paid_amount__gt=0
+    ).select_related("contract", "contract__customer")
+    pay_month = request.GET.get("pay_month", "").strip()
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            qs = qs.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    query = request.GET.get("q", "").strip()
+    if query:
+        qs = qs.filter(
+            Q(contract__contract_number__icontains=query)
+            | Q(contract__customer__name__icontains=query)
+        )
+    installments = qs.order_by("-paid_date", "-due_date")
+    total = qs.aggregate(t=Sum("paid_amount"))["t"] or MONEY_ZERO
+    pay_months = list(
+        Installment.objects.filter(
+            account=request.current_account, receiver=receiver,
+            paid_amount__gt=0, paid_date__isnull=False,
+        )
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
     return render(request, "core/receivers/receiver_detail.html", {
         "receiver": receiver,
         "installments": installments,
         "total": total,
+        "pay_month": pay_month,
+        "pay_months": pay_months,
+        "query": query,
     })
 
 
