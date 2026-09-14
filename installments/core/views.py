@@ -943,9 +943,17 @@ def dashboard(request):
         inst = recent_payment_installments.get(log.object_id)
         if not inst:
             continue
+        # الـ payment logs بتتكتب بمفتاح total_paid (فرق العقد قبل/بعد الدفع)،
+        # واللوجات القديمة أو غير الـ dict بنرجع فيها لآخر paid_amount للقسط.
         try:
-            payment_amount = Decimal(log.new_value.get("paid_amount", "0")) - Decimal(log.previous_value.get("paid_amount", "0"))
+            new_value = log.new_value if isinstance(log.new_value, dict) else {}
+            previous_value = log.previous_value if isinstance(log.previous_value, dict) else {}
+            payment_amount = None
+            if "total_paid" in new_value and "total_paid" in previous_value:
+                payment_amount = Decimal(new_value["total_paid"]) - Decimal(previous_value["total_paid"])
         except Exception:
+            payment_amount = None
+        if not payment_amount:
             payment_amount = inst.paid_amount
         recent_payments.append({
             "contract_number": inst.contract.contract_number,
