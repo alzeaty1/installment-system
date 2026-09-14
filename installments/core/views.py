@@ -2592,7 +2592,7 @@ def receiver_list(request):
             .annotate(m=TruncMonth("paid_date"))
             .values("m")
             .annotate(t=Sum("paid_amount"))
-            .order_by("-m")
+            .order_by("-m")[:4]
         )
         cards.append({
             "receiver": r,
@@ -2612,7 +2612,7 @@ def receiver_list(request):
                 .annotate(m=TruncMonth("paid_date"))
                 .values("m")
                 .annotate(t=Sum("paid_amount"))
-                .order_by("-m")
+                .order_by("-m")[:4]
             ),
         }
     return render(request, "core/receivers/receiver_list.html", {"cards": cards, "unassigned": unassigned, "pay_month": pay_month, "pay_months": pay_months})
