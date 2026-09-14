@@ -27,6 +27,7 @@ from .models import (
     MAX_MONEY_AMOUNT,
     MonthlyIncome,
     Notification,
+    Payment,
     Product,
     ProductType,
     Receiver,
@@ -1385,10 +1386,18 @@ def contract_detail(request, id):
     
     # إضافة روابط الواتساب للأقساط + المتبقي التراكمي بعد كل قسط
     running_paid = Decimal("0.00")
+    _pay_map = {}
+    for p in Payment.objects.filter(installment__contract=contract).order_by("paid_date", "created_at"):
+        _pay_map.setdefault(p.installment_id, []).append(p)
+    _mlabels = dict(Installment.PAYMENT_METHOD_CHOICES)
     for inst in installments:
         inst.whatsapp_reminder = _get_whatsapp_url(inst, "reminder")
         inst.whatsapp_overdue = _get_whatsapp_url(inst, "overdue")
         inst.whatsapp_payment = _get_whatsapp_url(inst, "payment")
+        plist = _pay_map.get(inst.id, [])
+        for p in plist:
+            p.method_label = _mlabels.get(p.payment_method or "", "غير محدد")
+        inst.payments_list = plist
         running_paid += inst.paid_amount or MONEY_ZERO
         inst.remaining_after_this = max((contract.total_amount or MONEY_ZERO) - running_paid, MONEY_ZERO)
     
@@ -1724,6 +1733,16 @@ def _apply_payment(contract, amount, pay_date, payment_method="", receiver=None,
         else:
             inst.status = Installment.STATUS_PARTIAL
     inst.save()
+    Payment.objects.create(
+        account=inst.account,
+        installment=inst,
+        amount=amount,
+        payment_method=payment_method or "",
+        paid_date=pay_date,
+        receiver=receiver,
+        received_by=received_by or "",
+        notes=notes or "",
+    )
     _refresh_contract_status(contract)
     return [(inst, amount)], inst
 
@@ -1882,6 +1901,8 @@ def installment_reset_payment(request, id):
         installment.save(
             update_fields=["paid_amount", "paid_date", "payment_method", "status"]
         )
+        # الإلغاء يمسح صفوف الدفعات — كأن القسط لم يُدفع أبدًا
+        installment.payments.all().delete()
         _refresh_contract_status(installment.contract)
         # لو الإلغاء خلّى المدفوع أقل من قيمة العقد → العقد يرجع نشط (مش مكتمل)
         contract = installment.contract
@@ -1928,6 +1949,20 @@ def installment_edit(request, id):
         else:
             installment.status = Installment.STATUS_PENDING
         installment.save(update_fields=["amount", "due_date", "notes", "paid_amount", "status"])
+        if old_paid != installment.paid_amount:
+            # تصحيح المبلغ يعيد كتابة الدفعات كصف واحد بالقيم المصححة
+            installment.payments.all().delete()
+            if installment.paid_amount and installment.paid_amount > 0:
+                Payment.objects.create(
+                    account=installment.account,
+                    installment=installment,
+                    amount=installment.paid_amount,
+                    payment_method=installment.payment_method or "",
+                    paid_date=installment.paid_date,
+                    receiver=installment.receiver,
+                    received_by=installment.received_by or "",
+                    notes="تصحيح مبلغ مدخَل",
+                )
         _refresh_contract_status(installment.contract)
         _maybe_auto_close(installment.contract)
 
@@ -2011,6 +2046,35 @@ def reports_dashboard(request):
         series_collected.append(float(collected_by_month.get(datetime_from_month(y, m), 0) or 0))
         series_financed.append(float(financed_by_month.get(datetime_from_month(y, m), 0) or 0))
 
+    # ── Payment-method breakdown (from Payment rows, one row per payment) ──
+    pay_month = request.GET.get("pay_month", "").strip()
+    payments_qs = Payment.objects.filter(account=request.current_account)
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            payments_qs = payments_qs.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    method_labels = dict(Installment.PAYMENT_METHOD_CHOICES)
+    method_cards = []
+    for row in payments_qs.values("payment_method").annotate(
+        total=Sum("amount"), n=Count("id")
+    ).order_by("-total"):
+        code = row["payment_method"] or ""
+        method_cards.append({
+            "code": code,
+            "label": method_labels.get(code, "غير محدد"),
+            "total": row["total"],
+            "n": row["n"],
+        })
+    pay_months = list(
+        Payment.objects.filter(account=request.current_account, paid_date__isnull=False)
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
+
     return render(request, "core/reports_index.html", {
         "contracts_count": contracts.count(),
         "total_invested": _sum(contracts, "actual_cost"),
@@ -2022,6 +2086,57 @@ def reports_dashboard(request):
         "chart_financed_json": json.dumps(series_financed),
         "chart_months": chart_months,
         "chart_ranges": [(3, "3 شهور"), (6, "6 شهور"), (12, "سنة"), (24, "سنتين")],
+        "method_cards": method_cards,
+        "pay_month": pay_month,
+        "pay_months": pay_months,
+    })
+
+
+def method_payments(request):
+    """صفحة تفاصيل مدفوعات طريقة دفع واحدة: فلتر شهري + بحث."""
+    method_labels = dict(Installment.PAYMENT_METHOD_CHOICES)
+    method = request.GET.get("method", "").strip()
+    if method not in method_labels:
+        return redirect("core:reports_dashboard")
+    pay_month = request.GET.get("pay_month", "").strip()
+    query = request.GET.get("q", "").strip()
+    payments_qs = Payment.objects.filter(
+        account=request.current_account, payment_method=method
+    )
+    if pay_month:
+        try:
+            _py, _pm = map(int, pay_month.split("-"))
+            payments_qs = payments_qs.filter(paid_date__year=_py, paid_date__month=_pm)
+        except ValueError:
+            pay_month = ""
+    if query:
+        payments_qs = payments_qs.filter(
+            Q(installment__contract__contract_number__icontains=query)
+            | Q(installment__contract__customer__name__icontains=query)
+        )
+    payments = list(
+        payments_qs.select_related(
+            "installment", "installment__contract", "installment__contract__customer"
+        ).order_by("-paid_date", "-created_at")
+    )
+    pay_months = list(
+        Payment.objects.filter(
+            account=request.current_account, payment_method=method, paid_date__isnull=False
+        )
+        .annotate(m=TruncMonth("paid_date"))
+        .values_list("m", flat=True)
+        .distinct()
+        .order_by("-m")
+    )
+    return render(request, "core/reports_method_payments.html", {
+        "method": method,
+        "method_label": method_labels[method],
+        "payments": payments,
+        "total": sum((p.amount for p in payments), MONEY_ZERO),
+        "count": len(payments),
+        "pay_month": pay_month,
+        "pay_months": pay_months,
+        "query": query,
     })
 
 

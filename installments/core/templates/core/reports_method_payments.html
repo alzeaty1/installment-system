@@ -1,0 +1,52 @@
+{% extends 'core/base.html' %}
+{% block title %}مدفوعات {{ method_label }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <h2>مدفوعات {{ method_label }}</h2>
+    <p class="page-subtitle">الإجمالي: <strong class="money">{{ total|mask_money }}</strong> من {{ count }} دفعة</p>
+  </div>
+  <div>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:reports_dashboard' %}">رجوع للتقارير</a>
+  </div>
+</div>
+
+<div class="card stat border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <input type="hidden" name="method" value="{{ method }}">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">الشهر</label>
+        <select name="pay_month" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">كل الفترات</option>
+          {% for m in pay_months %}
+          <option value="{{ m|date:'Y-m' }}" {% if pay_month == m|date:'Y-m' %}selected{% endif %}>{{ m|date:'m/Y' }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small text-muted">بحث (رقم العقد أو اسم العميل)</label>
+        <input type="search" name="q" value="{{ query }}" class="form-control form-control-sm" placeholder="مثال: CON-000028 أو مبارك">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-sm btn-primary w-100">بحث</button>
+      </div>
+    </form>
+    <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th>العقد</th><th>العميل</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+      <tbody>
+        {% for p in payments %}
+        <tr>
+          <td>{{ p.installment.contract.contract_number }}</td>
+          <td>{{ p.installment.contract.customer.name }}</td>
+          <td class="money text-success">{{ p.amount|mask_money }}</td>
+          <td class="small">{{ p.paid_date|date:"Y-m-d" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-muted text-center">لا توجد مدفوعات مطابقة.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endblock %}

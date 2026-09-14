@@ -93,6 +93,7 @@ urlpatterns = [
         name="monthly_income_edit",
     ),
     path("reports/", views.reports_dashboard, name="reports_dashboard"),
+    path("reports/payments/", views.method_payments, name="method_payments"),
     path("reports/profit/", views.profit_report, name="profit_report"),
     path("reports/profit/pdf/", views.profit_report_pdf, name="profit_report_pdf"),
     path(
