@@ -2,32 +2,67 @@
 {% block title %}المستلمون{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2 class="mb-0">👥 المستلمون</h2>
+  <h2 class="mb-0">👥 المحصلون</h2>
 </div>
 
-{% if receivers %}
+{% if cards %}
 <div class="row row-cols-1 row-cols-md-2 g-3">
-  {% for r in receivers %}
+  {% for card in cards %}
   <div class="col">
     <div class="card stat h-100">
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
+        <div class="d-flex justify-content-between align-items-start mb-2">
           <div>
-            <h5 class="card-title mb-1">🧑 {{ r.name }}</h5>
+            <h5 class="card-title mb-1">🧑 {{ card.receiver.name }}</h5>
             <p class="text-muted small mb-0">
-              إجمالي الاستلام: <strong class="money">{{  r.total_received|default:"0"|mask_money }}</strong>
+              إجمالي التحصيل: <strong class="money">{{ card.total|mask_money }}</strong>
             </p>
-            <p class="text-muted small mb-2">
-              عدد الدفعات: {{ r.payment_count|default:"0" }} دفعة
-              {% if not r.is_active %}<span class="badge bg-warning text-dark">غير نشط</span>{% endif %}
+            <p class="text-muted small mb-0">
+              عدد الدفعات: {{ card.n }} دفعة
+              {% if not card.receiver.is_active %}<span class="badge bg-warning text-dark">غير نشط</span>{% endif %}
             </p>
           </div>
-          <a href="{% url 'core:receiver_detail' r.id %}" class="btn btn-outline-primary btn-sm">عرض التفاصيل</a>
+          <a href="{% url 'core:receiver_detail' card.receiver.id %}" class="btn btn-outline-primary btn-sm">عرض التفاصيل</a>
         </div>
+        {% if card.months %}
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>الشهر</th><th>المحصل</th></tr></thead>
+          <tbody>
+            {% for m in card.months %}
+            <tr><td>{{ m.m|date:'m/Y' }}</td><td class="money">{{ m.t|mask_money }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+        {% else %}
+        <p class="text-muted small mb-0">لا توجد دفعات بعد.</p>
+        {% endif %}
       </div>
     </div>
   </div>
   {% endfor %}
+  {% if unassigned %}
+  <div class="col">
+    <div class="card stat h-100 border-warning">
+      <div class="card-body">
+        <h5 class="card-title mb-1">❓ غير محدد</h5>
+        <p class="text-muted small mb-2">
+          إجمالي: <strong class="money">{{ unassigned.total|mask_money }}</strong>
+          ({{ unassigned.n }} دفعة بلا محصل)
+        </p>
+        {% if unassigned.months %}
+        <div class="table-responsive"><table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>الشهر</th><th>المحصل</th></tr></thead>
+          <tbody>
+            {% for m in unassigned.months %}
+            <tr><td>{{ m.m|date:'m/Y' }}</td><td class="money">{{ m.t|mask_money }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% else %}
 <div class="alert alert-info">لا يوجد مستلمون بعد.</div>
