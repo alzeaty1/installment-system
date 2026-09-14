@@ -71,6 +71,13 @@ def _sum(queryset, field):
     return queryset.aggregate(total=Sum(field, default=MONEY_ZERO))["total"] or MONEY_ZERO
 
 
+def _invested_total(contracts):
+    """المستثمر = سعر العميل − المقدم (المبلغ الفعلي في الشارع)."""
+    return contracts.aggregate(
+        total=Sum(F("customer_price") - F("down_payment"), default=MONEY_ZERO)
+    )["total"] or MONEY_ZERO
+
+
 def _remaining_installments_total(queryset):
     total = (
         queryset.aggregate(total=Sum(F("amount") - F("paid_amount"), default=MONEY_ZERO))["total"]
@@ -870,7 +877,7 @@ def dashboard(request):
     total_profit = (profit_data["total_price"] - profit_data["total_cost"]) + profit_data["total_interest"]
 
     # ── Health cards context ─────────────────────────────────────────
-    total_invested_val = _sum(contracts, "actual_cost")
+    total_invested_val = _invested_total(contracts)
     total_collected_val = _sum(installments, "paid_amount")
     outstanding = max(total_invested_val - total_collected_val, MONEY_ZERO)
     recovery_pct = int(round(100 * float(total_collected_val) / float(total_invested_val))) if total_invested_val else 0
@@ -988,7 +995,7 @@ def dashboard(request):
         "total_cancelled": contracts.filter(status=Contract.STATUS_CANCELLED).count(),
         "due_today_count": due_today.count(),
         "overdue_count": overdue_count,
-        "total_invested": _sum(contracts, "actual_cost"),
+        "total_invested": _invested_total(contracts),
         "total_collected": _sum(installments, "paid_amount"),
         # health cards
         "outstanding": outstanding,
@@ -1995,12 +2002,18 @@ def reports_dashboard(request):
         .values_list("m")
         .annotate(t=Sum("paid_amount"))
     )
-    financed_by_month = dict(
-        contracts.filter(start_date__isnull=False)
-        .annotate(m=TruncMonth("start_date"))
-        .values_list("m")
-        .annotate(t=Sum("total_amount"))
-    )
+    # التمويل الشهري = سعر العميل − المقدم، مجمعًا حسب تاريخ تسجيل البيع
+    # (created_at) — لأن start_date هو أول استحقاق وليس تاريخ البيع.
+    financed_by_month = {}
+    for row in (
+        contracts.annotate(m=TruncMonth("created_at"))
+        .values("m")
+        .annotate(t=Sum(F("customer_price") - F("down_payment")))
+    ):
+        key = row["m"]
+        if hasattr(key, "date"):
+            key = key.date()
+        financed_by_month[key] = row["t"]
 
     AR_MONTHS = ["", "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
                  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
@@ -2013,7 +2026,7 @@ def reports_dashboard(request):
 
     return render(request, "core/reports_index.html", {
         "contracts_count": contracts.count(),
-        "total_invested": _sum(contracts, "actual_cost"),
+        "total_invested": _invested_total(contracts),
         "total_collected": _sum(installments, "paid_amount"),
         "total_expenses": _sum(expenses, "amount"),
         "total_profit": sum((_contract_profit(c) for c in contracts), MONEY_ZERO),
@@ -2063,7 +2076,7 @@ def customer_statement_pdf(request, id):
 @require_write
 def investment_report(request):
     contracts = Contract.objects.filter(account=request.current_account).select_related("customer").order_by("-created_at")
-    return render(request, "core/reports_investment.html", {"contracts": contracts, "total_invested": _sum(contracts, "actual_cost"), "total_customer_price": _sum(contracts, "customer_price"), "total_collected": _sum(Installment.objects.filter(account=request.current_account), "paid_amount")})
+    return render(request, "core/reports_investment.html", {"contracts": contracts, "total_invested": _invested_total(contracts), "total_customer_price": _sum(contracts, "customer_price"), "total_collected": _sum(Installment.objects.filter(account=request.current_account), "paid_amount")})
 
 
 @require_write
